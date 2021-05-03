@@ -54,12 +54,10 @@ spec:
             properties:
               createdTime:
                 format: date-time
-                nullable: true
                 type: string
               outputs:
                 additionalProperties:
                   type: string
-                nullable: true
                 type: object
               resources:
                 items:
@@ -82,7 +80,6 @@ spec:
                   - status
                   - type
                   type: object
-                nullable: true
                 type: array
               stackID:
                 type: string
@@ -90,7 +87,6 @@ spec:
                 type: string
               updatedTime:
                 format: date-time
-                nullable: true
                 type: string
             required:
             - stackID

@@ -35,8 +35,10 @@ import (
 // Defines the desired state of Stack
 type StackSpec struct {
 	// +kubebuilder:validation:Optional
+	// +optional
 	Parameters map[string]string `json:"parameters,omitempty"`
 	// +kubebuilder:validation:Optional
+	// +optional
 	Tags     map[string]string `json:"tags,omitempty"`
 	Template string            `json:"template"`
 }
@@ -45,18 +47,19 @@ type StackSpec struct {
 type StackStatus struct {
 	StackID string `json:"stackID"`
 	// +kubebuilder:validation:Optional
+	// +optional
 	StackStatus string `json:"stackStatus"`
 	// +kubebuilder:validation:Optional
-	// +nullable
+	// +optional
 	CreatedTime metav1.Time `json:"createdTime,omitEmpty"`
 	// +kubebuilder:validation:Optional
-	// +nullable
+	// +optional
 	UpdatedTime metav1.Time `json:"updatedTime,omitEmpty"`
 	// +kubebuilder:validation:Optional
-	// +nullable
+	// +optional
 	Outputs map[string]string `json:"outputs,omitEmpty"`
 	// +kubebuilder:validation:Optional
-	// +nullable
+	// +optional
 	Resources []StackResource `json:"resources,omitEmpty"`
 }
 
@@ -67,6 +70,7 @@ type StackResource struct {
 	Type       string `json:"type"`
 	Status     string `json:"status"`
 	// +kubebuilder:validation:Optional
+	// +optional
 	StatusReason string `json:"statusReason,omitEmpty"`
 }
 
