@@ -16,12 +16,15 @@ You need API access to a cluster running at least Kubernetes v1.17.0+.
 Start the CloudFormation operator in your cluster by using the provided manifests:
 
 ```console
-$ make deploy IMG=quay.io/linki/cloudformation-operator:latest
+$ make deploy IMG=quay.io/cuppett/cloudformation-operator:main
 ```
 
 Modify the `region` flag to match your cluster's.
 
-Additionally you need to make sure that the operator Pod has enough AWS IAM permissions to create, update and delete CloudFormation stacks as well as permission to modify any resources that are part of the CloudFormation stacks you intend to deploy. In order to follow the example below it needs access to CloudFormation as well as S3.
+Additionally, you need to make sure that the operator Pod has enough AWS IAM permissions to create, update and delete 
+CloudFormation stacks as well as permission to modify any resources that are part of the CloudFormation stacks you 
+intend to deploy. 
+In order to follow the example below it needs access to CloudFormation as well as S3.
 
 The operator will require an IAM role or user credentials. 
 Use the following Policy document as a guideline in order to follow the tutorial:
@@ -39,9 +42,13 @@ MyIAMRole:
     ...
 ```
 
-The operator will usually use the IAM role of the EC2 instance it's running on, so you have to add those permissions to that role. If you're using [Kube2IAM](https://github.com/jtblin/kube2iam) or similar and give your Pod a dedicated IAM role then you have to add the permissions to that role.
+The operator will usually use the IAM role of the EC2 instance it's running on, so you have to add those permissions to 
+that role. 
+If you're using [EKS OIDC](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) or similar
+method and give your Pod a dedicated IAM role then you have to add the permissions to that role.
 
-Once running the operator should print some output but shouldn't actually do anything at this point. Leave it running, keep watching its logs and continue with the steps below.
+Once running the operator should print some output but shouldn't actually do anything at this point. 
+Leave it running, keep watching its logs and continue with the steps below.
 
 # Demo
 
@@ -128,22 +135,28 @@ spec:
             Status: Enabled
 ```
 
-As with most Kubernetes resources you can update your `Stack` resource by applying a changed manifest to your Kubernetes cluster or by using `kubectl edit stack my-stack`.
+As with most Kubernetes resources you can update your `Stack` resource by applying a changed manifest to your Kubernetes 
+cluster or by using `kubectl edit stack my-stack`.
 
 ```console
 $ kubectl apply -f config/samples/cfs-my-bucket-v2.yaml
 stack "my-bucket" configured
 ```
 
-Wait until the operator discovered and executed the change, then look at your AWS CloudFormation console again and find your stack being updated, yay.
+Wait until the operator discovered and executed the change, then look at your AWS CloudFormation console again and find 
+your stack being updated, yay.
 
 ![Update stack](docs/img/stack-update.png)
 
 ## Tags
 
-You may want to assign tags to your CloudFormation stacks. The tags added to a CloudFormation stack will be propagated to the managed resources. This feature may be useful in multiple cases, for example, to distinguish resources at billing report. Current operator provides two ways to assign tags:
+You may want to assign tags to your CloudFormation stacks. 
+The tags added to a CloudFormation stack will be propagated to the managed resources. 
+This feature may be useful in multiple cases, for example, to distinguish resources at billing report. 
+Current operator provides two ways to assign tags:
 - `--tag` command line argument or `AWS_TAGS` environment variable which allows setting default tags for all resources managed by the operator. The format is `--tag=foo=bar --tag=wambo=baz` on the command line or with a line break when specifying as an env var. (e.g. in zsh: `AWS_TAGS="foo=bar"$'\n'"wambo=baz"`)
 - `tags` parameter at kubernetes resource spec:
+
 ```yaml
 apiVersion: cloudformation.linki.space/v1alpha1
 kind: Stack
@@ -164,7 +177,9 @@ spec:
             Status: Enabled
 ```
 
-Resource-specific tags have precedence over the default tags. Thus if a tag is defined at command-line arguments and for a `Stack` resource, the value from the `Stack` resource will be used.
+Resource-specific tags have precedence over the default tags. 
+Thus if a tag is defined at command-line arguments and for a `Stack` resource, the value from the `Stack` resource will
+be used.
 
 If we run the operation and a `Stack` resource with the described above examples, we'll see such picture:
 
@@ -172,7 +187,8 @@ If we run the operation and a `Stack` resource with the described above examples
 
 ## Parameters
 
-However, often you'll want to extract dynamic values out of your CloudFormation stack template into so called `Parameters` so that your template itself doesn't change that often and, well, is really a *template*.
+However, often you'll want to extract dynamic values out of your CloudFormation stack template into so called `Parameters` 
+so that your template itself doesn't change that often and, well, is really a *template*.
 
 Let's extract the `VersioningConfiguration` into a parameter:
 
@@ -212,13 +228,18 @@ $ kubectl apply -f config/samples/cfs-my-bucket-v3.yaml
 stack "my-bucket" configured
 ```
 
-Since we changed the template a little this will update your CloudFormation stack. However, since we didn't actually change anything because we injected the same `VersioningConfiguration` value as before, your S3 bucket shouldn't change.
+Since we changed the template a little this will update your CloudFormation stack. 
+However, since we didn't actually change anything because we injected the same `VersioningConfiguration` value as before, 
+your S3 bucket shouldn't change.
 
-Any CloudFormation parameters defined in the CloudFormation template can be specified in the `Stack` resource's `spec.parameters` section. It's a simple key/value map.
+Any CloudFormation parameters defined in the CloudFormation template can be specified in the `Stack` resource's 
+`spec.parameters` section. 
+It's a simple key/value map.
 
 ## Outputs
 
-Furthermore, CloudFormation supports so called `Outputs`. These can be used for dynamic values that are only known after a stack has been created.
+Furthermore, CloudFormation supports so called `Outputs`. These can be used for dynamic values that are only known after 
+a stack has been created.
 In our example, we don't define a particular S3 bucket name but instead let AWS generate one for us.
 
 Let's change our CloudFormation template to expose the generated bucket name via an `Output`:
@@ -264,7 +285,8 @@ $ kubectl apply -f config/samples/cfs-my-bucket-v4.yaml
 stack "my-bucket" configured
 ```
 
-Every `Output` you define will be available in your Kubernetes resource's `status` section under the `outputs` field as a key/value map.
+Every `Output` you define will be available in your Kubernetes resource's `status` section under the `outputs` field as 
+a key/value map.
 
 Let's check the name of our S3 bucket:
 
@@ -279,11 +301,15 @@ status:
     BucketName: my-bucket-s3bucket-tarusnslfnsj
 ```
 
-In the template we defined an `Output` called `BucketName` that should contain the name of our bucket after stack creation. Looking up the corresponding value under `.status.outputs[BucketName]` reveals that our bucket was named `my-bucket-s3bucket-tarusnslfnsj`.
+In the template we defined an `Output` called `BucketName` that should contain the name of our bucket after stack creation. 
+Looking up the corresponding value under `.status.outputs[BucketName]` reveals that our bucket was named 
+`my-bucket-s3bucket-tarusnslfnsj`.
 
 ## Delete stack
 
-The operator captures the whole lifecycle of a CloudFormation stack. So if you delete the resource from Kubernetes, the operator will teardown the CloudFormation stack as well. Let's do that now:
+The operator captures the whole lifecycle of a CloudFormation stack. 
+So if you delete the resource from Kubernetes, the operator will tear down the CloudFormation stack as well. 
+Let's do that now:
 
 ```console
 $ kubectl delete stack my-bucket
@@ -322,13 +348,6 @@ $ make
 $ WATCH_NAMESPACE=default KUBERNETES_CONFIG=~/.kube/config make run OPERATOR_FLAGS="--region eu-central-1"
 ```
 
-## Build the docker image
-
-```console
-$ make docker-build quay.io/linki/cloudformation-operator:latest
-$ make docker-push quay.io/linki/cloudformation-operator:latest
-```
-
 ## Test it locally
 
 You can use `OPERATOR_FLAGS` to pass in flags using the operator-sdk.
@@ -349,4 +368,10 @@ I0122 16:31:14.509064  195514 request.go:645] Throttling request took 1.02779090
 2021-01-22T16:31:15.864-0500    INFO    controller-runtime.manager.controller.stack     Starting EventSource    {"reconciler group": "cloudformation.linki.space", "reconciler kind": "Stack", "source": "kind source: /, Kind="}
 2021-01-22T16:31:15.965-0500    INFO    controller-runtime.manager.controller.stack     Starting Controller     {"reconciler group": "cloudformation.linki.space", "reconciler kind": "Stack"}
 2021-01-22T16:31:15.965-0500    INFO    controller-runtime.manager.controller.stack     Starting workers        {"reconciler group": "cloudformation.linki.space", "reconciler kind": "Stack", "worker count": 1}
+```
+## Build and publish the docker image
+
+```console
+$ make docker-build quay.io/linki/cloudformation-operator:latest
+$ make docker-push quay.io/linki/cloudformation-operator:latest
 ```
