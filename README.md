@@ -1,13 +1,6 @@
-[![GitHub release](https://img.shields.io/github/release/linki/cloudformation-operator.svg)](https://github.com/linki/cloudformation-operator/releases)
-[![Docker Repository on Quay](https://quay.io/repository/linki/cloudformation-operator/status "Docker Repository on Quay")](https://quay.io/repository/linki/cloudformation-operator)
-
 # cloudformation-operator
 
 A Kubernetes operator for managing CloudFormation stacks via `kubectl` and a custom resource definition.
-
-**Warning: this project is in alpha state. It should only be used to try out the demo and get the general idea.**
-
-**This version uses the new operator-sdk. It's untested and may not work correctly**
 
 # Deploy to a cluster
 
@@ -64,7 +57,7 @@ No resources found.
 Let's create a simple one that manages an S3 bucket:
 
 ```yaml
-apiVersion: cloudformation.linki.space/v1alpha1
+apiVersion: cloudformation.cuppett.com/v1beta1
 kind: Stack
 metadata:
   name: my-bucket
@@ -118,7 +111,7 @@ Voilà, you just created a CloudFormation stack by only talking to Kubernetes.
 You can also update your stack: Let's change the `VersioningConfiguration` from `Suspended` to `Enabled`:
 
 ```yaml
-apiVersion: cloudformation.linki.space/v1alpha1
+apiVersion: cloudformation.cuppett.com/v1beta1
 kind: Stack
 metadata:
   name: my-bucket
@@ -158,7 +151,7 @@ Current operator provides two ways to assign tags:
 - `tags` parameter at kubernetes resource spec:
 
 ```yaml
-apiVersion: cloudformation.linki.space/v1alpha1
+apiVersion: cloudformation.cuppett.com/v1beta1
 kind: Stack
 metadata:
   name: my-bucket
@@ -193,7 +186,7 @@ so that your template itself doesn't change that often and, well, is really a *t
 Let's extract the `VersioningConfiguration` into a parameter:
 
 ```yaml
-apiVersion: cloudformation.linki.space/v1alpha1
+apiVersion: cloudformation.cuppett.com/v1beta1
 kind: Stack
 metadata:
   name: my-bucket
@@ -245,7 +238,7 @@ In our example, we don't define a particular S3 bucket name but instead let AWS 
 Let's change our CloudFormation template to expose the generated bucket name via an `Output`:
 
 ```yaml
-apiVersion: cloudformation.linki.space/v1alpha1
+apiVersion: cloudformation.cuppett.com/v1beta1
 kind: Stack
 metadata:
   name: my-bucket
@@ -357,7 +350,7 @@ Assuming you are using minikube:
 ```console
 $ minikube start # you will be have a kubeconfig read to use by cloudformation operator
 $ export AWS_PROFILE=my_profile # setup your aws config
-$ cd $GOPATH/src/github.com/linki/cloudformation-operator
+$ cd $GOPATH/src/github.com/cuppett/cloudformation-operator
 $ # run cloudformation operator based on previous settings and env vars
 $ WATCH_NAMESPACE=staging make run OPERATOR_FLAGS="--dry-run=true --region=eu-central-1"
 I0122 16:31:14.509064  195514 request.go:645] Throttling request took 1.027790903s, request: GET:https://api.crc.testing:6443/apis/template.openshift.io/v1?timeout=32s
@@ -365,13 +358,12 @@ I0122 16:31:14.509064  195514 request.go:645] Throttling request took 1.02779090
 2021-01-22T16:31:15.864-0500    INFO    setup   
 2021-01-22T16:31:15.864-0500    INFO    setup   starting manager
 2021-01-22T16:31:15.864-0500    INFO    controller-runtime.manager      starting metrics server {"path": "/metrics"}
-2021-01-22T16:31:15.864-0500    INFO    controller-runtime.manager.controller.stack     Starting EventSource    {"reconciler group": "cloudformation.linki.space", "reconciler kind": "Stack", "source": "kind source: /, Kind="}
-2021-01-22T16:31:15.965-0500    INFO    controller-runtime.manager.controller.stack     Starting Controller     {"reconciler group": "cloudformation.linki.space", "reconciler kind": "Stack"}
-2021-01-22T16:31:15.965-0500    INFO    controller-runtime.manager.controller.stack     Starting workers        {"reconciler group": "cloudformation.linki.space", "reconciler kind": "Stack", "worker count": 1}
+2021-01-22T16:31:15.864-0500    INFO    controller-runtime.manager.controller.stack     Starting EventSource    {"reconciler group": "cloudformation.cuppett.com", "reconciler kind": "Stack", "source": "kind source: /, Kind="}
+2021-01-22T16:31:15.965-0500    INFO    controller-runtime.manager.controller.stack     Starting Controller     {"reconciler group": "cloudformation.cuppett.com", "reconciler kind": "Stack"}
+2021-01-22T16:31:15.965-0500    INFO    controller-runtime.manager.controller.stack     Starting workers        {"reconciler group": "cloudformation.cuppett.com", "reconciler kind": "Stack", "worker count": 1}
 ```
 ## Build and publish the docker image
 
 ```console
-$ make docker-build quay.io/linki/cloudformation-operator:latest
-$ make docker-push quay.io/linki/cloudformation-operator:latest
+$ make docker-build docker-push IMG=quay.io/cuppett/cloudformation-operator:latest
 ```

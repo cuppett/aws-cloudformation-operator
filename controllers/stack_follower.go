@@ -28,8 +28,8 @@ package controllers
 import (
 	"context"
 	cfTypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
+	"github.com/cuppett/cloudformation-operator/api/v1beta1"
 	"github.com/go-logr/logr"
-	cloudformationv1alpha1 "github.com/linki/cloudformation-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -44,7 +44,7 @@ type StackFollower struct {
 	client.Client
 	Log                  logr.Logger
 	CloudFormationHelper *CloudFormationHelper
-	SubmissionChannel    chan *cloudformationv1alpha1.Stack
+	SubmissionChannel    chan *v1beta1.Stack
 	// StackID -> Kube Stack object
 	mapPollingList sync.Map
 }
@@ -69,7 +69,7 @@ func (f *StackFollower) BeingFollowed(stackId string) bool {
 }
 
 // Identify if the follower is actively working this one.
-func (f *StackFollower) startFollowing(stack *cloudformationv1alpha1.Stack) {
+func (f *StackFollower) startFollowing(stack *v1beta1.Stack) {
 	namespacedName := &types.NamespacedName{Name: stack.Name, Namespace: stack.Namespace}
 	f.mapPollingList.Store(stack.Status.StackID, namespacedName)
 	f.Log.Info("Now following Stack", "StackID", stack.Status.StackID)
@@ -82,7 +82,7 @@ func (f *StackFollower) stopFollowing(stackId string) {
 }
 
 // Allow passing a current/recent fetch of the stack object to the method (optionally)
-func (f *StackFollower) UpdateStackStatus(ctx context.Context, instance *cloudformationv1alpha1.Stack, stack ...*cfTypes.Stack) error {
+func (f *StackFollower) UpdateStackStatus(ctx context.Context, instance *v1beta1.Stack, stack ...*cfTypes.Stack) error {
 	var err error
 	var cfs *cfTypes.Stack
 	update := false
@@ -160,7 +160,7 @@ func (f *StackFollower) processStack(key interface{}, value interface{}) bool {
 
 	stackId := key.(string)
 	namespacedName := value.(*types.NamespacedName)
-	stack := &cloudformationv1alpha1.Stack{}
+	stack := &v1beta1.Stack{}
 
 	// Fetch the Stack instance
 	err := f.Client.Get(context.TODO(), *namespacedName, stack)

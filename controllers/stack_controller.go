@@ -27,6 +27,7 @@ package controllers
 
 import (
 	"context"
+	"github.com/cuppett/cloudformation-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"strings"
@@ -40,15 +41,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	cfTypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
-
-	cloudformationv1alpha1 "github.com/linki/cloudformation-operator/api/v1alpha1"
 )
 
 const (
 	controllerKey   = "kubernetes.io/controlled-by"
-	controllerValue = "cloudformation.linki.space/operator"
-	legacyFinalizer = "finalizer.cloudformation.linki.space"
-	stacksFinalizer = "cloudformation.linki.space/finalizer"
+	controllerValue = "cloudformation.cuppett.com/operator"
+	legacyFinalizer = "finalizer.cloudformation.cuppett.com"
+	stacksFinalizer = "cloudformation.cuppett.com/finalizer"
 	ownerKey        = "kubernetes.io/owned-by"
 )
 
@@ -68,13 +67,13 @@ type StackReconciler struct {
 type StackLoop struct {
 	ctx      context.Context
 	req      ctrl.Request
-	instance *cloudformationv1alpha1.Stack
+	instance *v1beta1.Stack
 	stack    *cfTypes.Stack
 }
 
-// +kubebuilder:rbac:groups=cloudformation.linki.space,resources=stacks,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=cloudformation.linki.space,resources=stacks/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=cloudformation.linki.space,resources=stacks/finalizers,verbs=update
+// +kubebuilder:rbac:groups=cloudformation.cuppett.com,resources=stacks,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=cloudformation.cuppett.com,resources=stacks/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=cloudformation.cuppett.com,resources=stacks/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -84,7 +83,7 @@ type StackLoop struct {
 func (r *StackReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
 
-	loop := &StackLoop{ctx, req, &cloudformationv1alpha1.Stack{}, nil}
+	loop := &StackLoop{ctx, req, &v1beta1.Stack{}, nil}
 
 	// Fetch the Stack instance
 	err := r.Client.Get(loop.ctx, loop.req.NamespacedName, loop.instance)
@@ -384,6 +383,6 @@ func (r *StackReconciler) stackTags(loop *StackLoop) ([]cfTypes.Tag, error) {
 // SetupWithManager sets up the controller with the Manager.
 func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&cloudformationv1alpha1.Stack{}).
+		For(&v1beta1.Stack{}).
 		Complete(r)
 }

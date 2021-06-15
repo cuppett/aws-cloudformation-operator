@@ -8,4 +8,4 @@ webhook:
   port: 9443
 leaderElection:
   leaderElect: true
-  resourceName: 64032969.cloudformation.linki.space
+  resourceName: 3680e595.cuppett.com

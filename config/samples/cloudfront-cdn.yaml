@@ -1,4 +1,4 @@
-apiVersion: cloudformation.linki.space/v1alpha1
+apiVersion: cloudformation.cuppett.com/v1beta1
 kind: Stack
 metadata:
   name: my-cdn

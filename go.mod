@@ -1,4 +1,4 @@
-module github.com/linki/cloudformation-operator
+module github.com/cuppett/cloudformation-operator
 
 go 1.15
 
