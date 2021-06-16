@@ -67,7 +67,6 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 
 	StackFlagSet = pflag.NewFlagSet("stack", pflag.ExitOnError)
-	StackFlagSet.String("region", "", "The AWS region to use")
 	StackFlagSet.String("assume-role", "", "Assume AWS role when defined. Useful for stacks in another AWS account. Specify the full ARN, e.g. `arn:aws:iam::123456789:role/cloudformation-operator`")
 	StackFlagSet.StringToString("tag", map[string]string{}, "Tags to apply to all Stacks by default. Specify multiple times for multiple tags.")
 	StackFlagSet.StringSlice("capability", []string{}, "The AWS CloudFormation capability to enable")
@@ -130,11 +129,6 @@ func main() {
 		setupLog.Error(err, "error parsing flag")
 		os.Exit(1)
 	}
-	region, err := StackFlagSet.GetString("region")
-	if err != nil {
-		setupLog.Error(err, "error parsing flag")
-		os.Exit(1)
-	}
 	defaultTags, err := StackFlagSet.GetStringToString("tag")
 	if err != nil {
 		setupLog.Error(err, "error parsing flag")
@@ -157,7 +151,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		setupLog.Error(err, "error getting AWS config")
 		os.Exit(1)

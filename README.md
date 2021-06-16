@@ -1,18 +1,19 @@
 # cloudformation-operator
 
-A Kubernetes operator for managing CloudFormation stacks via `kubectl` and a custom resource definition.
+A custom resource definition for CloudFormation stacks and a Kubernetes operator for managing them.
 
-# Deploy to a cluster
+## Deploy to a cluster
 
-You need API access to a cluster running at least Kubernetes v1.17.0+.
+You need API access to a cluster running at least Kubernetes v1.19+ (OpenShift 4.6+).
 
 Start the CloudFormation operator in your cluster by using the provided manifests:
 
 ```console
+$ export AWS_ACCESS_KEY_ID=XXXXX
+$ export AWS_SECRET_ACCESS_KEY=XXXXX
+$ export AWS_REGION=XXXXX
 $ make deploy IMG=quay.io/cuppett/cloudformation-operator:main
 ```
-
-Modify the `region` flag to match your cluster's.
 
 Additionally, you need to make sure that the operator Pod has enough AWS IAM permissions to create, update and delete 
 CloudFormation stacks as well as permission to modify any resources that are part of the CloudFormation stacks you 
@@ -43,9 +44,9 @@ method and give your Pod a dedicated IAM role then you have to add the permissio
 Once running the operator should print some output but shouldn't actually do anything at this point. 
 Leave it running, keep watching its logs and continue with the steps below.
 
-# Demo
+## Demo
 
-## Create stack
+### Create stack
 
 Currently you don't have any stacks.
 
@@ -80,7 +81,7 @@ The `spec` section describes an attribute called `template` which contains a reg
 Go ahead and submit the stack definition to your cluster:
 
 ```console
-$ kubectl apply -f config/samples/cfs-my-bucket-v1.yaml
+$ kubectl apply -f config/samples/s3-bucket.yaml
 stack "my-bucket" created
 $ kubectl get stacks
 NAME        AGE
@@ -106,7 +107,7 @@ status:
 
 Voilà, you just created a CloudFormation stack by only talking to Kubernetes.
 
-## Update stack
+### Update stack
 
 You can also update your stack: Let's change the `VersioningConfiguration` from `Suspended` to `Enabled`:
 
@@ -132,7 +133,7 @@ As with most Kubernetes resources you can update your `Stack` resource by applyi
 cluster or by using `kubectl edit stack my-stack`.
 
 ```console
-$ kubectl apply -f config/samples/cfs-my-bucket-v2.yaml
+$ kubectl apply -f config/samples/s3-bucket.yaml
 stack "my-bucket" configured
 ```
 
@@ -141,7 +142,7 @@ your stack being updated, yay.
 
 ![Update stack](docs/img/stack-update.png)
 
-## Tags
+### Tags
 
 You may want to assign tags to your CloudFormation stacks. 
 The tags added to a CloudFormation stack will be propagated to the managed resources. 
@@ -178,7 +179,7 @@ If we run the operation and a `Stack` resource with the described above examples
 
 ![Stack tags](docs/img/stack-tags.png)
 
-## Parameters
+### Parameters
 
 However, often you'll want to extract dynamic values out of your CloudFormation stack template into so called `Parameters` 
 so that your template itself doesn't change that often and, well, is really a *template*.
@@ -217,7 +218,7 @@ spec:
 and apply it to your cluster:
 
 ```console
-$ kubectl apply -f config/samples/cfs-my-bucket-v3.yaml
+$ kubectl apply -f config/samples/s3-bucket.yaml
 stack "my-bucket" configured
 ```
 
@@ -229,7 +230,7 @@ Any CloudFormation parameters defined in the CloudFormation template can be spec
 `spec.parameters` section. 
 It's a simple key/value map.
 
-## Outputs
+### Outputs
 
 Furthermore, CloudFormation supports so called `Outputs`. These can be used for dynamic values that are only known after 
 a stack has been created.
@@ -274,7 +275,7 @@ spec:
 Apply the change to our cluster and wait until the operator has successfully updated the CloudFormation stack.
 
 ```console
-$ kubectl apply -f config/samples/cfs-my-bucket-v4.yaml
+$ kubectl apply -f config/samples/s3-bucket.yaml
 stack "my-bucket" configured
 ```
 
@@ -298,7 +299,7 @@ In the template we defined an `Output` called `BucketName` that should contain t
 Looking up the corresponding value under `.status.outputs[BucketName]` reveals that our bucket was named 
 `my-bucket-s3bucket-tarusnslfnsj`.
 
-## Delete stack
+### Delete stack
 
 The operator captures the whole lifecycle of a CloudFormation stack. 
 So if you delete the resource from Kubernetes, the operator will tear down the CloudFormation stack as well. 
@@ -313,7 +314,7 @@ Check your CloudFormation console once more and validate that your stack as well
 
 ![Delete stack](docs/img/stack-delete.png)
 
-# Command-line arguments
+## Command-line arguments
 
 Argument | Environment variable | Default value | Description
 ---------|----------------------|---------------|------------
@@ -321,10 +322,9 @@ assume-role | | | Assume AWS role when defined. Useful for stacks in another AWS
 capability | | | Enable specified capabilities for all stacks managed by the operator instance. Current parameter can be used multiple times. For example: `--capability CAPABILITY_NAMED_IAM --capability CAPABILITY_IAM`. Or with a line break when specifying as an environment variable: `AWS_CAPABILITIES=CAPABILITY_IAM$'\n'CAPABILITY_NAMED_IAM`
 dry-run | | | If true, don't actually do anything.
 tag ... | | | Default tags which should be applied for all stacks. The format is `--tag=foo=bar --tag=wambo=baz` on the command line or with a line break when specifying as an env var. (e.g. in zsh: `AWS_TAGS="foo=bar"$'\n'"wambo=baz"`)
-namespace | WATCH_NAMESPACE | default | The Kubernetes namespace to watch
-region | | | The AWS region to use
+namespace | WATCH_NAMESPACE | (all) | The Kubernetes namespace to watch
 
-# Cleanup
+## Cleanup
 
 Clean up the resources:
 
@@ -332,38 +332,57 @@ Clean up the resources:
 $ make undeploy
 ```
 
-# Build and run locally
+## Build locally
 
 This project uses the [operator sdk](https://github.com/operator-framework/operator-sdk).
 
 ```console
 $ make
-$ WATCH_NAMESPACE=default KUBERNETES_CONFIG=~/.kube/config make run OPERATOR_FLAGS="--region eu-central-1"
 ```
 
-## Test it locally
-
-You can use `OPERATOR_FLAGS` to pass in flags using the operator-sdk.
-
-Assuming you are using minikube:
-
-```console
-$ minikube start # you will be have a kubeconfig read to use by cloudformation operator
-$ export AWS_PROFILE=my_profile # setup your aws config
-$ cd $GOPATH/src/github.com/cuppett/cloudformation-operator
-$ # run cloudformation operator based on previous settings and env vars
-$ WATCH_NAMESPACE=staging make run OPERATOR_FLAGS="--dry-run=true --region=eu-central-1"
-I0122 16:31:14.509064  195514 request.go:645] Throttling request took 1.027790903s, request: GET:https://api.crc.testing:6443/apis/template.openshift.io/v1?timeout=32s
-2021-01-22T16:31:15.863-0500    INFO    controller-runtime.metrics      metrics server is starting to listen    {"addr": ":8080"}
-2021-01-22T16:31:15.864-0500    INFO    setup   
-2021-01-22T16:31:15.864-0500    INFO    setup   starting manager
-2021-01-22T16:31:15.864-0500    INFO    controller-runtime.manager      starting metrics server {"path": "/metrics"}
-2021-01-22T16:31:15.864-0500    INFO    controller-runtime.manager.controller.stack     Starting EventSource    {"reconciler group": "cloudformation.cuppett.com", "reconciler kind": "Stack", "source": "kind source: /, Kind="}
-2021-01-22T16:31:15.965-0500    INFO    controller-runtime.manager.controller.stack     Starting Controller     {"reconciler group": "cloudformation.cuppett.com", "reconciler kind": "Stack"}
-2021-01-22T16:31:15.965-0500    INFO    controller-runtime.manager.controller.stack     Starting workers        {"reconciler group": "cloudformation.cuppett.com", "reconciler kind": "Stack", "worker count": 1}
-```
-## Build and publish the docker image
+### Build and publish the docker image
 
 ```console
 $ make docker-build docker-push IMG=quay.io/cuppett/cloudformation-operator:latest
+```
+
+### Test it
+
+(Assuming you have already configured your KUBECONFIG or other means)
+
+```console
+$ export AWS_ACCESS_KEY_ID=XXXXX
+$ export AWS_SECRET_ACCESS_KEY=XXXXX
+$ export AWS_REGION=XXXXX
+$ make deploy IMG=quay.io/cuppett/cloudformation-operator:latest
+/home/scuppett/go/src/github.com/cuppett/cloudformation-operator/bin/controller-gen "crd:trivialVersions=true,preserveUnknownFields=false" rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+cd config/manager && /home/scuppett/go/src/github.com/cuppett/cloudformation-operator/bin/kustomize edit set image controller=controller:latest
+/home/scuppett/go/src/github.com/cuppett/cloudformation-operator/bin/kustomize build config/default | kubectl apply -f -
+namespace/cloudformation-operator-system created
+serviceaccount/cloudformation-operator-controller-manager created
+role.rbac.authorization.k8s.io/cloudformation-operator-leader-election-role created
+clusterrole.rbac.authorization.k8s.io/cloudformation-operator-manager-role created
+clusterrole.rbac.authorization.k8s.io/cloudformation-operator-metrics-reader created
+clusterrole.rbac.authorization.k8s.io/cloudformation-operator-proxy-role created
+rolebinding.rbac.authorization.k8s.io/cloudformation-operator-leader-election-rolebinding created
+clusterrolebinding.rbac.authorization.k8s.io/cloudformation-operator-manager-rolebinding created
+clusterrolebinding.rbac.authorization.k8s.io/cloudformation-operator-proxy-rolebinding created
+configmap/cloudformation-operator-manager-config created
+secret/cloudformation-operator-aws-keys-bggbf5bk55 created
+service/cloudformation-operator-controller-manager-metrics-service created
+deployment.apps/cloudformation-operator-controller-manager created
+
+$ kubectl logs -n cloudformation-operator-system [POD_NAME] manager
+I0616 09:57:32.743358       1 request.go:655] Throttling request took 1.030675011s, request: GET:https://10.217.4.1:443/apis/authorization.k8s.io/v1?timeout=32s
+2021-06-16T09:57:34.716Z	INFO	controller-runtime.metrics	metrics server is starting to listen	{"addr": "127.0.0.1:8080"}
+2021-06-16T09:57:34.717Z	INFO	setup
+2021-06-16T09:57:34.717Z	INFO	setup	starting manager
+I0616 09:57:34.717500       1 leaderelection.go:243] attempting to acquire leader lease cloudformation-operator-system/3680e595.cuppett.com...
+2021-06-16T09:57:34.717Z	INFO	controller-runtime.manager	starting metrics server	{"path": "/metrics"}
+I0616 09:57:34.731016       1 leaderelection.go:253] successfully acquired lease cloudformation-operator-system/3680e595.cuppett.com
+2021-06-16T09:57:34.731Z	INFO	controller-runtime.manager.controller.stack	Starting EventSource	{"reconciler group": "cloudformation.cuppett.com", "reconciler kind": "Stack", "source": "kind source: /, Kind="}
+2021-06-16T09:57:34.731Z	DEBUG	controller-runtime.manager.events	Normal	{"object": {"kind":"ConfigMap","namespace":"cloudformation-operator-system","name":"3680e595.cuppett.com","uid":"f088468b-39e9-48cf-bdde-6db0b9bd4d57","apiVersion":"v1","resourceVersion":"64943"}, "reason": "LeaderElection", "message": "cloudformation-operator-controller-manager-7cb9f97dc7-4zdjm_542574a7-e0a4-48c4-b1fb-49025ffa3a1d became leader"}
+2021-06-16T09:57:34.731Z	DEBUG	controller-runtime.manager.events	Normal	{"object": {"kind":"Lease","namespace":"cloudformation-operator-system","name":"3680e595.cuppett.com","uid":"5c3c65d3-7aed-4c3e-8654-3dc28a207d84","apiVersion":"coordination.k8s.io/v1","resourceVersion":"64944"}, "reason": "LeaderElection", "message": "cloudformation-operator-controller-manager-7cb9f97dc7-4zdjm_542574a7-e0a4-48c4-b1fb-49025ffa3a1d became leader"}
+2021-06-16T09:57:34.833Z	INFO	controller-runtime.manager.controller.stack	Starting Controller	{"reconciler group": "cloudformation.cuppett.com", "reconciler kind": "Stack"}
+2021-06-16T09:57:34.833Z	INFO	controller-runtime.manager.controller.stack	Starting workers	{"reconciler group": "cloudformation.cuppett.com", "reconciler kind": "Stack", "worker count": 1}
 ```
