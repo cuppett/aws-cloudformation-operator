@@ -1,6 +1,5 @@
 # Build the manager binary
-FROM registry.fedoraproject.org/fedora-minimal:34 AS builder
-RUN mkdir /go && microdnf -y install golang && microdnf -y clean all
+FROM docker.io/library/golang:1.16 as builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
