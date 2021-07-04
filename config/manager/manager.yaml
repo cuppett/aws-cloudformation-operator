@@ -35,6 +35,26 @@ spec:
             secretKeyRef:
               name: aws-keys
               key: AWS_ACCESS_KEY_ID
+        - name: AWS_DEFAULT_REGION
+          valueFrom:
+            secretKeyRef:
+              name: aws-keys
+              key: AWS_DEFAULT_REGION
+        - name: AWS_PROFILE
+          valueFrom:
+            secretKeyRef:
+              name: aws-keys
+              key: AWS_PROFILE
+        - name: AWS_REGION
+          valueFrom:
+            secretKeyRef:
+              name: aws-keys
+              key: AWS_REGION
+        - name: AWS_SDK_LOAD_CONFIG
+          valueFrom:
+            secretKeyRef:
+              name: aws-keys
+              key: AWS_SDK_LOAD_CONFIG
         - name: AWS_SECRET_ACCESS_KEY
           valueFrom:
             secretKeyRef:
@@ -45,16 +65,6 @@ spec:
             secretKeyRef:
               name: aws-keys
               key: AWS_SESSION_TOKEN
-        - name: AWS_DEFAULT_REGION
-          valueFrom:
-            secretKeyRef:
-              name: aws-keys
-              key: AWS_DEFAULT_REGION
-        - name: AWS_REGION
-          valueFrom:
-            secretKeyRef:
-              name: aws-keys
-              key: AWS_REGION
         args:
         - --leader-elect
         image: controller:latest
