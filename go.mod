@@ -3,11 +3,11 @@ module github.com/cuppett/cloudformation-operator
 go 1.16
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.6.0
-	github.com/aws/aws-sdk-go-v2/config v1.3.0
-	github.com/aws/aws-sdk-go-v2/credentials v1.2.1
-	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.5.1
-	github.com/aws/aws-sdk-go-v2/service/sts v1.4.1
+	github.com/aws/aws-sdk-go-v2 v1.7.1
+	github.com/aws/aws-sdk-go-v2/config v1.4.1
+	github.com/aws/aws-sdk-go-v2/credentials v1.3.0
+	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.6.0
+	github.com/aws/aws-sdk-go-v2/service/sts v1.5.0
 	github.com/go-logr/logr v0.4.0
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0
