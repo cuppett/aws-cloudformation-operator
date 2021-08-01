@@ -10,7 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.5.0
 	github.com/go-logr/logr v0.4.0
 	github.com/onsi/ginkgo v1.16.4
-	github.com/onsi/gomega v1.13.0
+	github.com/onsi/gomega v1.14.0
 	github.com/spf13/pflag v1.0.5
 	k8s.io/apimachinery v0.21.1
 	k8s.io/client-go v0.21.1
