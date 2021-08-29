@@ -2,5 +2,5 @@
 resources:
 - s3-bucket.yaml
 - cloudfront-cdn.yaml
-- cloudformation_v1beta1_stack.yaml
+- sqs-queue.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples
