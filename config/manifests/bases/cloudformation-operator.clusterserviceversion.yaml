@@ -1,0 +1,54 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: cloudformation-operator.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: Stack is the Schema for the stacks API
+      displayName: Stack
+      kind: Stack
+      name: stacks.cloudformation.cuppett.com
+      version: v1beta1
+  description: Create, update and manage CloudFormation stacks from within Kubernetes as well as all resources CloudFormation can provision and control.
+  displayName: AWS CloudFormation Operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - AWS
+  - CloudFormation
+  - S3
+  - SNS
+  - SQS
+  - RDS
+  - Kafka
+  links:
+  - name: Cloudformation Operator
+    url: https://cloudformation-operator.domain
+  maintainers:
+  - email: steve@cuppett.com
+    name: Stephen Cuppett
+  maturity: alpha
+  provider:
+    name: Stephen Cuppett
+    url: https://github.com/cuppett/cloudformation-operator
+  version: 0.0.0
