@@ -7,7 +7,6 @@ plugins:
 projectName: cloudformation-operator
 repo: github.com/cuppett/cloudformation-operator
 resources:
-9942
 - api:
     crdVersion: v1
     namespaced: true
