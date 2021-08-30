@@ -17,10 +17,8 @@ COPY controllers/ controllers/
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go
 
-# Use ubi8/ubi-micro as minimal base image to package the manager binary
-# Refer to https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/8/html-single/building_running_and_managing_containers/index/#con_understanding-the-ubi-micro-images_assembly_types-of-container-images
-# for more details
-FROM registry.access.redhat.com/ubi8/ubi-micro
+# Use ubi8/ubi-minimal as minimal base image to package the manager binary
+FROM registry.access.redhat.com/ubi8/ubi-minimal
 WORKDIR /
 COPY --from=builder /workspace/manager .
 USER 65532:65532
