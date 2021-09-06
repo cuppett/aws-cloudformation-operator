@@ -130,6 +130,14 @@ func (f *StackFollower) UpdateStackStatus(ctx context.Context, instance *v1beta1
 		}
 	}
 
+	// Recording the Role ARN
+	roleArn := cfs.RoleARN
+	if roleArn != nil && *roleArn != "" {
+		instance.Status.RoleARN = *roleArn
+	} else {
+		instance.Status.RoleARN = ""
+	}
+
 	// Recording all stack resources
 	resources, err := f.CloudFormationHelper.GetStackResources(ctx, instance.Status.StackID)
 	if err != nil {

@@ -44,9 +44,12 @@ type StackSpec struct {
 	Parameters map[string]string `json:"parameters,omitempty"`
 	// +kubebuilder:validation:Optional
 	// +optional
+	RoleARN string `json:"roleArn,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +optional
 	Tags map[string]string `json:"tags,omitempty"`
 
-	// can't make one of fileds required until https://github.com/kubernetes-sigs/controller-tools/issues/461 is supported
+	// TODO: can't make one of fields required until https://github.com/kubernetes-sigs/controller-tools/issues/461 is supported
 
 	// +kubebuilder:validation:Optional
 	// +optional
@@ -74,6 +77,9 @@ type StackStatus struct {
 	// +kubebuilder:validation:Optional
 	// +optional
 	Resources []StackResource `json:"resources,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +optional
+	RoleARN string `json:"roleArn,omitempty"`
 }
 
 // Defines a resource provided/managed by a Stack and its current state
