@@ -2,49 +2,16 @@
 
 A custom resource definition for CloudFormation stacks and a Kubernetes operator for managing them.
 
-## Deploy to a cluster
+## Key Features
 
-You need API access to a cluster running at least Kubernetes v1.19+ (OpenShift 4.6+).
-
-Start the CloudFormation operator in your cluster by using the provided manifests:
-
-```console
-$ export AWS_ACCESS_KEY_ID=XXXXX
-$ export AWS_SECRET_ACCESS_KEY=XXXXX
-$ export AWS_REGION=XXXXX
-$ make deploy IMG=quay.io/cuppett/cloudformation-operator:main
-```
-
-Additionally, you need to make sure that the operator Pod has enough AWS IAM permissions to create, update and delete 
-CloudFormation stacks as well as permission to modify any resources that are part of the CloudFormation stacks you 
-intend to deploy. 
-In order to follow the example below it needs access to CloudFormation as well as S3.
-
-The operator will require an IAM role or user credentials. 
-Use the following Policy document as a guideline in order to follow the tutorial:
-
-```yaml
-MyIAMRole:
-  Properties:
-    ...
-    Policies:
-    - PolicyDocument:
-        Statement:
-        - {Action: 'cloudformation:*', Effect: Allow, Resource: '*'}
-        - {Action: 's3:*', Effect: Allow, Resource: '*'}
-        Version: '2012-10-17'
-    ...
-```
-
-The operator will usually use the IAM role of the EC2 instance it's running on, so you have to add those permissions to 
-that role. 
-If you're using [EKS OIDC](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) or similar
-method and give your Pod a dedicated IAM role then you have to add the permissions to that role.
-
-Once running the operator should print some output but shouldn't actually do anything at this point. 
-Leave it running, keep watching its logs and continue with the steps below.
+1) Create, manage & lifecycle CloudFormation stacks via Kubernetes
+2) Create, manage & lifecycle any AWS resources supported via CloudFormation from Kubernetes
+3) Template Stack outputs available in-cluster for consumption of values and endpoints in other applications
+4) Template able to be provided as inline YAML or via separate URL
 
 ## Demo
+
+The following demonstration assumes a deployed & working operator. Please see the sections further below how that can be achieved.
 
 ### Create stack
 
@@ -54,6 +21,8 @@ Currently you don't have any stacks.
 $ kubectl get stacks
 No resources found.
 ```
+
+#### Template
 
 Let's create a simple one that manages an S3 bucket:
 
@@ -107,41 +76,9 @@ status:
 
 Voilà, you just created a CloudFormation stack by only talking to Kubernetes.
 
-### Template URL
-
-If your template exceeds maximum size of `51200` bytes, you can instead upload it to S3, [get presigned url](https://docs.aws.amazon.com/AmazonS3/latest/userguide/ShareObjectPreSignedURL.html#generating-presigned-url) if this bucket is private, and set it's URL in `templateUrl`:
-
-```yaml
-apiVersion: cloudformation.cuppett.com/v1beta1
-kind: Stack
-metadata:
-  name: my-stack
-spec:
-  templateUrl: 'https://my-bucket-name.s3.amazonaws.com/template_file.json?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Signature=adfj9yqihfseuifhsukf&Expires=1629952961'
-```
-
-> NOTE: Put URL in quotes to avoid templating issues
-
-> NOTE: The template URL will only be re-read by CloudFormation on controller restarts, periodically (hours), and when other updates to the Stack resource are made.  
-
-### Create options
-
-To change stack behavior on creation use `onFailure` that suports `DELETE`, `DO_NOTHING`, and `ROLLBACK` options:
-
-```yaml
-apiVersion: cloudformation.cuppett.com/v1beta1
-kind: Stack
-metadata:
-  name: my-stack
-spec:
-  template: |
-    ...
-  onFailure: DELETE
-```
-
 ### Update stack
 
-You can also update your stack: Let's change the `VersioningConfiguration` from `Suspended` to `Enabled`:
+You can also update your stack resources: Let's change the `VersioningConfiguration` from `Suspended` to `Enabled`:
 
 ```yaml
 apiVersion: cloudformation.cuppett.com/v1beta1
@@ -173,35 +110,6 @@ Wait until the operator discovered and executed the change, then look at your AW
 your stack being updated, yay.
 
 ![Update stack](docs/img/stack-update.png)
-
-### Tags
-
-You may want to assign tags to your CloudFormation stacks. 
-The tags added to a CloudFormation stack will be propagated to the managed resources. 
-This feature may be useful in multiple cases, for example, to distinguish resources at billing report. 
-Current operator provides two ways to assign tags:
-- `--tag` command line argument or `AWS_TAGS` environment variable which allows setting default tags for all resources managed by the operator. The format is `--tag=foo=bar --tag=wambo=baz` on the command line or with a line break when specifying as an env var. (e.g. in zsh: `AWS_TAGS="foo=bar"$'\n'"wambo=baz"`)
-- `tags` parameter at kubernetes resource spec:
-
-```yaml
-apiVersion: cloudformation.cuppett.com/v1beta1
-kind: Stack
-metadata:
-  name: my-bucket
-spec:
-  tags:
-    foo: dataFromStack
-  template: |
-    ---
-    AWSTemplateFormatVersion: '2010-09-09'
-
-    Resources:
-      S3Bucket:
-        Type: AWS::S3::Bucket
-        Properties:
-          VersioningConfiguration:
-            Status: Enabled
-```
 
 Resource-specific tags have precedence over the default tags. 
 Thus if a tag is defined at command-line arguments and for a `Stack` resource, the value from the `Stack` resource will
@@ -346,46 +254,202 @@ Check your CloudFormation console once more and validate that your stack as well
 
 ![Delete stack](docs/img/stack-delete.png)
 
-## Command-line arguments
+## Stack Features
 
-Argument | Environment variable | Default value | Description
----------|----------------------|---------------|------------
-assume-role | | | Assume AWS role when defined. Useful for stacks in another AWS account. Specify the full ARN, e.g. `arn:aws:iam::123456789:role/cloudformation-operator`
-capability | | | Enable specified capabilities for all stacks managed by the operator instance. Current parameter can be used multiple times. For example: `--capability CAPABILITY_NAMED_IAM --capability CAPABILITY_IAM`. Or with a line break when specifying as an environment variable: `AWS_CAPABILITIES=CAPABILITY_IAM$'\n'CAPABILITY_NAMED_IAM`
-dry-run | | | If true, don't actually do anything.
-tag ... | | | Default tags which should be applied for all stacks. The format is `--tag=foo=bar --tag=wambo=baz` on the command line or with a line break when specifying as an env var. (e.g. in zsh: `AWS_TAGS="foo=bar"$'\n'"wambo=baz"`)
-namespace | WATCH_NAMESPACE | (all) | The Kubernetes namespace to watch
+There are several additional capabilities of a Stack resource not included in the demo above.
 
-## Cleanup
+### Tags
 
-Clean up the resources:
+You may want to assign tags to your CloudFormation stacks.
+The tags added to a CloudFormation stack will be propagated to the managed resources.
+This feature may be useful in multiple cases, for example, to distinguish resources at billing report.
+Current operator provides two ways to assign tags:
+- `--tag` command line argument or `AWS_TAGS` environment variable which allows setting default tags for all resources managed by the operator. The format is `--tag=foo=bar --tag=wambo=baz` on the command line or with a line break when specifying as an env var. (e.g. in zsh: `AWS_TAGS="foo=bar"$'\n'"wambo=baz"`)
+- `tags` parameter at kubernetes resource spec:
 
-```console
-$ make undeploy
+```yaml
+apiVersion: cloudformation.cuppett.com/v1beta1
+kind: Stack
+metadata:
+  name: my-bucket
+spec:
+  tags:
+    foo: dataFromStack
+  template: |
+    ---
+    AWSTemplateFormatVersion: '2010-09-09'
+
+    Resources:
+      S3Bucket:
+        Type: AWS::S3::Bucket
+        Properties:
+          VersioningConfiguration:
+            Status: Enabled
 ```
 
-## Build locally
+### Template URL
 
-This project uses the [operator sdk](https://github.com/operator-framework/operator-sdk).
+If your template exceeds maximum size of `51200` bytes, you can instead upload it to S3 or a standard web server, and set its URL in `templateUrl`:
 
-```console
-$ make
+```yaml
+apiVersion: cloudformation.cuppett.com/v1beta1
+kind: Stack
+metadata:
+  name: my-stack
+spec:
+  templateUrl: 'https://my-bucket-name.s3.amazonaws.com/template_file.json'
 ```
+
+> NOTE: Put URL in quotes to avoid templating issues
+
+> NOTE: The template URL will only be re-read by CloudFormation on controller restarts, periodically (hours), and when other updates to the Stack resource are made.
+
+### Role ARN
+
+For indirect ownership of the operator to stack resources (described further down below), you can specify the role to be used for
+creating or updating resources.
+
+```yaml
+apiVersion: cloudformation.cuppett.com/v1beta1
+kind: Stack
+metadata:
+  name: my-stack
+spec:
+  roleArn: 'arn:aws:iam::123456789000:role/cf-resources-allowed'
+```
+
+### Create options
+
+#### onFailure
+
+To change stack behavior on creation use `onFailure` that suports `DELETE`, `DO_NOTHING`, and `ROLLBACK` options:
+
+```yaml
+apiVersion: cloudformation.cuppett.com/v1beta1
+kind: Stack
+metadata:
+  name: my-stack
+spec:
+  template: |
+    ...
+  onFailure: DELETE
+```
+
+## Deploying to a Cluster
+
+You need API access to a cluster running at least Kubernetes v1.19+ (OpenShift 4.6+).
 
 ### Build and publish the docker image
+
+Use this step for building a private copy of the operator
 
 ```console
 $ make docker-build docker-push IMG=quay.io/cuppett/cloudformation-operator:latest
 ```
 
-### Test it
+### Deployment
 
-(Assuming you have already configured your KUBECONFIG or other means)
+#### Permissions
+
+The operator will require an IAM role or user credentials.
+You need to make sure that the operator Pod has enough AWS IAM permissions to create, update and delete
+CloudFormation stacks as well as permission to modify any resources that are part of the CloudFormation stacks you
+intend to manage.
+
+The following use cases for the operator are possible via the IAM features provided:
+
+1) Direct ownership: The operator works against CloudFormation and management of the resources within using the credentials provided.
+2) Indirect ownership: The operator works against CloudFormation, but management of the resources is done via the RoleARN provided in the Stack resource spec.roleArn
+3) Assumed identity: The --assume-role command line argument is provided. The operator assumes the role using the credentials available and then that role is used in either the #1 and #2 mode above.
+
+##### Minimal Policy for Indirect Ownership
+
+Assuming no resources are to be modified by the operator directly, here is the minimal IAM policy required to allow the controller to function:
+
+```yaml
+Version: '2012-10-17'
+Statement:
+  - Sid: CreateRead
+    Effect: Allow
+    Action:
+      - cloudformation:CreateStack
+      - cloudformation:DescribeStackInstance
+      - cloudformation:DescribeStackResource
+      - cloudformation:DescribeStacks
+      - cloudformation:ListStackResources
+    Resource: "*"
+  - Sid: UpdateDelete
+    Effect: Allow
+    Action:
+      - cloudformation:DeleteStack
+      - cloudformation:UpdateStack
+    Resource: "*"
+    Condition:
+      StringEquals:
+        aws:ResourceTag/kubernetes.io/controlled-by: cloudformation.cuppett.com/operator
+```
+
+> NOTE: For direct ownership you will need to add additional policies for any resources the operator is intended to manipulate (e.g. S3, RDS, SQS).
+> You can achieve this by associating the AWS managed policies (e.g. arn:aws:iam::aws:policy/AmazonRDSFullAccess) or by crafting
+> and attaching your own. For individual services, refer to the AWS documentation those permissions required by CloudFormation to 
+> lifecycle those resources.
+
+##### Allowing RoleARN with New or Existing Stacks
+
+For indirect ownership, you will provide the Spec.roleArn attribute on every stack in the cluster. The role provided in the Stack
+resource must be able to have credentials "Passed" by CloudFormation.
+
+See also: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-servicerole.html
+
+You can achieve this by adding a policy similar to the following to the operator's principal role:
+
+```yaml
+Version: '2012-10-17'
+Statement:
+- Sid: PassRole
+  Effect: Allow
+  Action: iam:PassRole
+  Resource: arn:aws:iam::123456789000:role/cf-resources-allowed
+```
+The effective operator role will need this for any/all roles being used/referenced by the Stack resources managed by this operator.
+
+In addition, the spec.roleArn must have a trust relationship with the CloudFormation service as follows:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "cloudformation.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+```
+
+#### Providing credentials
+
+The operator will use the credentials discovered by the SDK and the default credential provider chain.
+If you're using [EKS OIDC](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) or similar
+method and give your Pod a dedicated IAM role then you have to add the permissions to that role.
+
+To set credentials explicitly, you can use the scaffolded in AWS environment variables in the SDK kustomize manifests:
 
 ```console
 $ export AWS_ACCESS_KEY_ID=XXXXX
 $ export AWS_SECRET_ACCESS_KEY=XXXXX
 $ export AWS_REGION=XXXXX
+```
+
+#### Using kustomize & make to deploy
+
+Deploy and start the CloudFormation operator in your cluster by using the provided manifests and Makefile:
+
+```console
 $ make deploy IMG=quay.io/cuppett/cloudformation-operator:latest
 /home/scuppett/go/src/github.com/cuppett/cloudformation-operator/bin/controller-gen "crd:trivialVersions=true,preserveUnknownFields=false" rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 cd config/manager && /home/scuppett/go/src/github.com/cuppett/cloudformation-operator/bin/kustomize edit set image controller=controller:latest
@@ -403,6 +467,17 @@ configmap/cloudformation-operator-manager-config created
 secret/cloudformation-operator-aws-keys-bggbf5bk55 created
 service/cloudformation-operator-controller-manager-metrics-service created
 deployment.apps/cloudformation-operator-controller-manager created
+```
+
+#### Monitoring
+
+Once running the operator should print some output but shouldn't actually do anything at this point.
+Leave it running & keep watching its logs as you work with Stack resources within your cluster.
+
+```console
+$ kubectl get pods -n cloudformation-operator-system
+NAME          READY   STATUS      RESTARTS   AGE
+[POD_NAME]    2/2     Running     0          1m
 
 $ kubectl logs -n cloudformation-operator-system [POD_NAME] manager
 I0616 09:57:32.743358       1 request.go:655] Throttling request took 1.030675011s, request: GET:https://10.217.4.1:443/apis/authorization.k8s.io/v1?timeout=32s
@@ -418,3 +493,47 @@ I0616 09:57:34.731016       1 leaderelection.go:253] successfully acquired lease
 2021-06-16T09:57:34.833Z	INFO	controller-runtime.manager.controller.stack	Starting Controller	{"reconciler group": "cloudformation.cuppett.com", "reconciler kind": "Stack"}
 2021-06-16T09:57:34.833Z	INFO	controller-runtime.manager.controller.stack	Starting workers	{"reconciler group": "cloudformation.cuppett.com", "reconciler kind": "Stack", "worker count": 1}
 ```
+
+### Cleanup
+
+Clean up the resources:
+
+```console
+$ make undeploy
+```
+
+## Build/run locally
+
+This project uses the [operator sdk](https://github.com/operator-framework/operator-sdk).
+
+(Assuming you have already configured your KUBECONFIG or other means)
+
+```console
+$ make run
+/home/scuppett/go/src/github.com/cuppett/cloudformation-operator/bin/controller-gen "crd:trivialVersions=true,preserveUnknownFields=false" rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+/home/scuppett/go/src/github.com/cuppett/cloudformation-operator/bin/controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
+go fmt ./...
+go vet ./...
+go run ./main.go
+I0906 11:40:34.682856   90327 request.go:668] Waited for 1.049926354s due to client-side throttling, not priority and fairness, request: GET:https://api.prod.openshift.cuppett.dev:6443/apis/apiextensions.k8s.io/v1beta1?timeout=32s
+2021-09-06T11:40:37.108-0400    INFO    controller-runtime.metrics      metrics server is starting to listen    {"addr": ":8080"}
+2021-09-06T11:40:37.109-0400    INFO    setup   
+2021-09-06T11:40:37.109-0400    INFO    setup   starting manager
+2021-09-06T11:40:37.109-0400    INFO    controller-runtime.manager      starting metrics server {"path": "/metrics"}
+2021-09-06T11:40:37.109-0400    INFO    controller-runtime.manager.controller.stack     Starting EventSource    {"reconciler group": "cloudformation.cuppett.com", "reconciler kind": "Stack", "source": "kind source: /, Kind="}
+2021-09-06T11:40:37.109-0400    INFO    controller-runtime.manager.controller.stack     Starting Controller     {"reconciler group": "cloudformation.cuppett.com", "reconciler kind": "Stack"}
+2021-09-06T11:40:37.211-0400    INFO    controller-runtime.manager.controller.stack     Starting workers        {"reconciler group": "cloudformation.cuppett.com", "reconciler kind": "Stack", "worker count": 1}
+```
+
+## Appendix: Command-line arguments
+
+There are a number of parameters to the controller which are not in the default manifests, but that allow further customization of it.
+These may be useful for restricting permissions, adding specific tags or in support of various deployment topologies.
+
+Argument | Environment variable | Default value | Description
+---------|----------------------|---------------|------------
+assume-role | | | Assume AWS role when defined. Useful for managing stacks in another AWS account from the OIDC endpoint or trust. Specify the full ARN, e.g. `arn:aws:iam::123456789:role/cloudformation-operator`
+capability | | | Enable specified capabilities for all stacks managed by the operator instance. Current parameter can be used multiple times. For example: `--capability CAPABILITY_NAMED_IAM --capability CAPABILITY_IAM`. Or with a line break when specifying as an environment variable: `AWS_CAPABILITIES=CAPABILITY_IAM$'\n'CAPABILITY_NAMED_IAM`
+dry-run | | | If true, don't actually do anything.
+tag ... | | | Default tags which should be applied for all stacks. The format is `--tag=foo=bar --tag=wambo=baz` on the command line or with a line break when specifying as an env var. (e.g. in zsh: `AWS_TAGS="foo=bar"$'\n'"wambo=baz"`)
+namespace | WATCH_NAMESPACE | (all) | The Kubernetes namespace to watch. Can be one or more (separated by commas).
