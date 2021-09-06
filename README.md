@@ -349,6 +349,13 @@ $ make docker-build docker-push IMG=quay.io/cuppett/cloudformation-operator:late
 
 ### Deployment
 
+#### Cert-Manager
+
+This controller uses webhooks. It will require either deploying cert-manager or arranging the manifests or environment
+in such a way the certificates are available as described in the kube-builder documenation.
+
+See Also: https://book.kubebuilder.io/cronjob-tutorial/cert-manager.html
+
 #### Permissions
 
 The operator will require an IAM role or user credentials.

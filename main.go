@@ -28,15 +28,16 @@ package main
 import (
 	"context"
 	"flag"
+	"os"
+	"strings"
+
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	cfTypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/spf13/pflag"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
-	"strings"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -194,6 +195,10 @@ func main() {
 		DryRun:               dryRun,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Stack")
+		os.Exit(1)
+	}
+	if err = (&cloudformationv1beta1.Stack{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "Stack")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

@@ -11,6 +11,6 @@ configMapGenerator:
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
-- digest: sha256:84579a9410e6ce679965d2da0d43492ee823ff888b29f5a7a13765ccc1566903
+- digest: sha256:c34a0fe4e512b3eee2757a28a925b184404531741421f376c3eee14edf37ba67
   name: controller
   newName: quay.io/cuppett/cloudformation-operator

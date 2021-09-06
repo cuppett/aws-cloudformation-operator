@@ -15,4 +15,8 @@ resources:
   kind: Stack
   path: github.com/cuppett/cloudformation-operator/api/v1beta1
   version: v1beta1
+  webhooks:
+    defaulting: false
+    validation: true
+    webhookVersion: v1
 version: "3"
