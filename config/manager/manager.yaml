@@ -65,6 +65,11 @@ spec:
             secretKeyRef:
               name: aws-keys
               key: AWS_SESSION_TOKEN
+        - name: WATCH_NAMESPACE
+          valueFrom:
+            secretKeyRef:
+              name: operator-flags
+              key: WATCH_NAMESPACE
         args:
         - --leader-elect
         image: controller:latest

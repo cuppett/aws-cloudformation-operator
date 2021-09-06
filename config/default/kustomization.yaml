@@ -28,6 +28,9 @@ secretGenerator:
 - name: aws-keys
   envs:
   - aws-vars.env
+- name: operator-flags
+  envs:
+    - operator-vars.env
 
 patchesStrategicMerge:
 # Protect the /metrics endpoint by putting it behind auth.
