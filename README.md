@@ -122,9 +122,11 @@ spec:
 
 > NOTE: Put URL in quotes to avoid templating issues
 
+> NOTE: The template URL will only be re-read by CloudFormation on controller restarts, periodically (hours), and when other updates to the Stack resource are made.  
+
 ### Create options
 
-To change stack behafiour on creation use `onFailure` that suports `DELETE`, `DO_NOTHING`, and `ROLLBACK` options:
+To change stack behavior on creation use `onFailure` that suports `DELETE`, `DO_NOTHING`, and `ROLLBACK` options:
 
 ```yaml
 apiVersion: cloudformation.cuppett.com/v1beta1
