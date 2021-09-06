@@ -36,6 +36,12 @@ spec:
           spec:
             description: Defines the desired state of Stack
             properties:
+              onFailure:
+                enum:
+                - DO_NOTHING
+                - ROLLBACK
+                - DELETE
+                type: string
               parameters:
                 additionalProperties:
                   type: string
@@ -46,8 +52,8 @@ spec:
                 type: object
               template:
                 type: string
-            required:
-            - template
+              templateUrl:
+                type: string
             type: object
           status:
             description: Defines the observed state of Stack

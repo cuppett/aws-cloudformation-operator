@@ -27,16 +27,17 @@ package controllers
 
 import (
 	"context"
+	"reflect"
+	"sync"
+	"time"
+
 	cfTypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/cuppett/cloudformation-operator/api/v1beta1"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sync"
-	"time"
 )
 
 // StackFollower ensures a Stack object is monitored until it reaches a terminal state
@@ -109,9 +110,13 @@ func (f *StackFollower) UpdateStackStatus(ctx context.Context, instance *v1beta1
 	if string(cfs.StackStatus) != instance.Status.StackStatus {
 		update = true
 		instance.Status.StackStatus = string(cfs.StackStatus)
-		instance.Status.CreatedTime = metav1.NewTime(*cfs.CreationTime)
+
+		createdTime := metav1.NewTime(*cfs.CreationTime)
+		instance.Status.CreatedTime = &createdTime
+
 		if cfs.LastUpdatedTime != nil {
-			instance.Status.UpdatedTime = metav1.NewTime(*cfs.LastUpdatedTime)
+			updatedTime := metav1.NewTime(*cfs.LastUpdatedTime)
+			instance.Status.UpdatedTime = &updatedTime
 		}
 	}
 

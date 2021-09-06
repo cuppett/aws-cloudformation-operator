@@ -107,6 +107,36 @@ status:
 
 Voilà, you just created a CloudFormation stack by only talking to Kubernetes.
 
+### Template URL
+
+If your template exceeds maximum size of `51200` bytes, you can instead upload it to S3, [get presigned url](https://docs.aws.amazon.com/AmazonS3/latest/userguide/ShareObjectPreSignedURL.html#generating-presigned-url) if this bucket is private, and set it's URL in `templateUrl`:
+
+```yaml
+apiVersion: cloudformation.cuppett.com/v1beta1
+kind: Stack
+metadata:
+  name: my-stack
+spec:
+  templateUrl: 'https://my-bucket-name.s3.amazonaws.com/template_file.json?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Signature=adfj9yqihfseuifhsukf&Expires=1629952961'
+```
+
+> NOTE: Put URL in quotes to avoid templating issues
+
+### Create options
+
+To change stack behafiour on creation use `onFailure` that suports `DELETE`, `DO_NOTHING`, and `ROLLBACK` options:
+
+```yaml
+apiVersion: cloudformation.cuppett.com/v1beta1
+kind: Stack
+metadata:
+  name: my-stack
+spec:
+  template: |
+    ...
+  onFailure: DELETE
+```
+
 ### Update stack
 
 You can also update your stack: Let's change the `VersioningConfiguration` from `Suspended` to `Enabled`:

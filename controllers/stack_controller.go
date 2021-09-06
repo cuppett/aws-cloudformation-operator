@@ -27,10 +27,12 @@ package controllers
 
 import (
 	"context"
+	coreerrors "errors"
+	"strings"
+
 	"github.com/cuppett/cloudformation-operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"strings"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -49,6 +51,10 @@ const (
 	legacyFinalizer = "finalizer.cloudformation.cuppett.com"
 	stacksFinalizer = "cloudformation.cuppett.com/finalizer"
 	ownerKey        = "kubernetes.io/owned-by"
+)
+
+var (
+	ErrMissingTemplateSpec = coreerrors.New("template or templateUrl must be provided")
 )
 
 // StackReconciler reconciles a Stack object
@@ -185,9 +191,23 @@ func (r *StackReconciler) createStack(loop *StackLoop) error {
 	input := &cloudformation.CreateStackInput{
 		Capabilities: r.DefaultCapabilities,
 		StackName:    aws.String(loop.instance.Name),
-		TemplateBody: aws.String(loop.instance.Spec.Template),
 		Parameters:   r.stackParameters(loop),
 		Tags:         stackTags,
+	}
+
+	if loop.instance.Spec.Template == "" && loop.instance.Spec.TemplateUrl == "" {
+		r.Log.WithValues("stack", loop.instance.Name).Error(ErrMissingTemplateSpec, "missing template spec")
+		return ErrMissingTemplateSpec
+	}
+
+	if loop.instance.Spec.Template != "" {
+		input.TemplateBody = aws.String(loop.instance.Spec.Template)
+	} else {
+		input.TemplateURL = aws.String(loop.instance.Spec.TemplateUrl)
+	}
+
+	if loop.instance.Spec.OnFailure != "" {
+		input.OnFailure = cfTypes.OnFailure(loop.instance.Spec.OnFailure)
 	}
 
 	output, err := r.CloudFormation.CreateStack(loop.ctx, input)
@@ -227,9 +247,19 @@ func (r *StackReconciler) updateStack(loop *StackLoop) error {
 	input := &cloudformation.UpdateStackInput{
 		Capabilities: r.DefaultCapabilities,
 		StackName:    aws.String(loop.instance.Name),
-		TemplateBody: aws.String(loop.instance.Spec.Template),
 		Parameters:   r.stackParameters(loop),
 		Tags:         stackTags,
+	}
+
+	if loop.instance.Spec.Template == "" && loop.instance.Spec.TemplateUrl == "" {
+		r.Log.WithValues("stack", loop.instance.Name).Error(ErrMissingTemplateSpec, "missing template spec")
+		return ErrMissingTemplateSpec
+	}
+
+	if loop.instance.Spec.Template != "" {
+		input.TemplateBody = aws.String(loop.instance.Spec.Template)
+	} else {
+		input.TemplateURL = aws.String(loop.instance.Spec.TemplateUrl)
 	}
 
 	if _, err := r.CloudFormation.UpdateStack(loop.ctx, input); err != nil {

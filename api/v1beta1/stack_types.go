@@ -36,12 +36,24 @@ import (
 // Defines the desired state of Stack
 type StackSpec struct {
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=DO_NOTHING;ROLLBACK;DELETE
+	// +optional
+	OnFailure string `json:"onFailure,omitempty"`
+	// +kubebuilder:validation:Optional
 	// +optional
 	Parameters map[string]string `json:"parameters,omitempty"`
 	// +kubebuilder:validation:Optional
 	// +optional
-	Tags     map[string]string `json:"tags,omitempty"`
-	Template string            `json:"template"`
+	Tags map[string]string `json:"tags,omitempty"`
+
+	// can't make one of fileds required until https://github.com/kubernetes-sigs/controller-tools/issues/461 is supported
+
+	// +kubebuilder:validation:Optional
+	// +optional
+	Template string `json:"template,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +optional
+	TemplateUrl string `json:"templateUrl,omitempty"`
 }
 
 // Defines the observed state of Stack
@@ -52,16 +64,16 @@ type StackStatus struct {
 	StackStatus string `json:"stackStatus"`
 	// +kubebuilder:validation:Optional
 	// +optional
-	CreatedTime metav1.Time `json:"createdTime,omitEmpty"`
+	CreatedTime *metav1.Time `json:"createdTime,omitempty"`
 	// +kubebuilder:validation:Optional
 	// +optional
-	UpdatedTime metav1.Time `json:"updatedTime,omitEmpty"`
+	UpdatedTime *metav1.Time `json:"updatedTime,omitempty"`
 	// +kubebuilder:validation:Optional
 	// +optional
-	Outputs map[string]string `json:"outputs,omitEmpty"`
+	Outputs map[string]string `json:"outputs,omitempty"`
 	// +kubebuilder:validation:Optional
 	// +optional
-	Resources []StackResource `json:"resources,omitEmpty"`
+	Resources []StackResource `json:"resources,omitempty"`
 }
 
 // Defines a resource provided/managed by a Stack and its current state
@@ -72,7 +84,7 @@ type StackResource struct {
 	Status     string `json:"status"`
 	// +kubebuilder:validation:Optional
 	// +optional
-	StatusReason string `json:"statusReason,omitEmpty"`
+	StatusReason string `json:"statusReason,omitempty"`
 }
 
 // +kubebuilder:object:root=true
