@@ -46,6 +46,7 @@ var (
 	ErrNeedTemplateOrUrl  = coreerrors.New("Template or TemplateUrl must be provided")
 	ErrMissingRole        = coreerrors.New("Role cannot be omitted on update")
 	ErrRoleArnTooShort    = coreerrors.New("Role ARN length must be at least 20 characters.")
+	ErrCannotChangeOnFail = coreerrors.New("You cannot change/update onFailure after create.")
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -86,6 +87,10 @@ func (r *Stack) ValidateUpdate(old runtime.Object) error {
 
 	if r.Spec.RoleARN == "" && oldStack.Status.RoleARN != "" {
 		return ErrMissingRole
+	}
+
+	if r.Spec.OnFailure != oldStack.Spec.OnFailure {
+		return ErrCannotChangeOnFail
 	}
 
 	return r.ValidateCreate()
