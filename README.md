@@ -318,6 +318,28 @@ spec:
   roleArn: 'arn:aws:iam::123456789000:role/cf-resources-allowed'
 ```
 
+### Notification ARNs
+
+You can receive signals via SNS for stack changes using the CloudFormation built-in notification mechanisms.
+Register one or more SNS topics with your stack like this:
+
+```yaml
+apiVersion: cloudformation.cuppett.com/v1beta1
+kind: Stack
+metadata:
+  name: my-stack
+spec:
+  notificationArns: 
+  - 'arn:aws:sns:us-east-2:641875867446:alert-admin'
+  - 'arn:aws:sns:us-east-2:641875867446:lambda-processor'
+```
+
+> NOTE: Found an issue with the Go SDK, following up here: https://github.com/aws/aws-sdk-go-v2/issues/1423
+> 
+> Workaround (to remove on Update):
+> 1. Save Stack resource without NotificationARNs (or empty YAML)
+> 2. Remove manually directly in AWS after successful save/update
+
 ### Create options
 
 #### onFailure

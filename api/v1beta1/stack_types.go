@@ -36,6 +36,9 @@ import (
 // Defines the desired state of Stack
 type StackSpec struct {
 	// +kubebuilder:validation:Optional
+	// +optional
+	NotificationArns []string `json:"notificationArns,omitempty"`
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Enum=DO_NOTHING;ROLLBACK;DELETE
 	// +optional
 	OnFailure string `json:"onFailure,omitempty"`

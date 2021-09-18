@@ -199,6 +199,8 @@ func (r *StackReconciler) createStack(loop *StackLoop) error {
 		input.RoleARN = aws.String(loop.instance.Spec.RoleARN)
 	}
 
+	input.NotificationARNs = loop.instance.Spec.NotificationArns
+
 	if loop.instance.Spec.Template == "" && loop.instance.Spec.TemplateUrl == "" {
 		r.Log.WithValues("stack", loop.instance.Name).Error(ErrMissingTemplateSpec, "missing template spec")
 		return ErrMissingTemplateSpec
@@ -254,6 +256,8 @@ func (r *StackReconciler) updateStack(loop *StackLoop) error {
 		Parameters:   r.stackParameters(loop),
 		Tags:         stackTags,
 	}
+
+	input.NotificationARNs = loop.instance.Spec.NotificationArns
 
 	if loop.instance.Spec.RoleARN != "" {
 		input.RoleARN = aws.String(loop.instance.Spec.RoleARN)
