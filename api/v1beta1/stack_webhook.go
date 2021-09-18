@@ -47,6 +47,7 @@ var (
 	ErrMissingRole        = coreerrors.New("Role cannot be omitted on update")
 	ErrRoleArnTooShort    = coreerrors.New("Role ARN length must be at least 20 characters.")
 	ErrCannotChangeOnFail = coreerrors.New("You cannot change/update onFailure after create.")
+	ErrTooManyARNs        = coreerrors.New("You cannot specify more than 5 NotificationARNs.")
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -73,6 +74,11 @@ func (r *Stack) ValidateCreate() error {
 	// Ensuring the Role ARN is long enough
 	if r.Spec.RoleARN != "" && len(r.Spec.RoleARN) < 20 {
 		return ErrRoleArnTooShort
+	}
+
+	// Ensuring no more than 5 NotificationARNs are submitted
+	if len(r.Spec.NotificationArns) > 5 {
+		return ErrTooManyARNs
 	}
 
 	return nil
