@@ -28,15 +28,19 @@ package controllers
 import (
 	"context"
 	coreerrors "errors"
+	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	cfTypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/cuppett/cloudformation-operator/api/v1beta1"
+	"hash/crc32"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"strings"
 )
 
 var (
 	ErrStackNotFound = coreerrors.New("stack not found")
+	logger           = ctrl.Log.WithName("helper")
 )
 
 type CloudFormationHelper struct {
@@ -57,10 +61,9 @@ func (cf *CloudFormationHelper) StackInTerminalState(status cfTypes.StackStatus)
 
 func (cf *CloudFormationHelper) GetStack(ctx context.Context, instance *v1beta1.Stack) (*cfTypes.Stack, error) {
 	// Must use the stack ID to get details/finalization for deleted stacks
-	name := instance.Status.StackID
-	if name == "" {
-		name = instance.Name
-	}
+	name := cf.GetStackName(ctx, instance, true)
+	logger.Info("Get Stack", "name", name, "uid", instance.UID)
+
 	resp, err := cf.CloudFormation.DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
 		NextToken: nil,
 		StackName: aws.String(name),
@@ -76,6 +79,29 @@ func (cf *CloudFormationHelper) GetStack(ctx context.Context, instance *v1beta1.
 	}
 
 	return &resp.Stacks[0], nil
+}
+
+func (cf *CloudFormationHelper) GetStackName(ctx context.Context, instance *v1beta1.Stack, allowID bool) string {
+	var stackName string
+
+	if instance.Status.StackID != "" && allowID {
+		stackName = instance.Status.StackID
+	} else if instance.Spec.StackName != "" {
+		stackName = instance.Spec.StackName
+	} else {
+		stackName = instance.Name
+		if len(stackName) > 55 {
+			stackName = stackName[:55]
+		}
+		// Generating a small, automatic name differentiator
+		checkSum := crc32.NewIEEE()
+		checkSum.Write([]byte(instance.UID))
+		checkSum.Write([]byte(instance.Namespace))
+		stackName = stackName + "-" + fmt.Sprintf("%08x", checkSum.Sum32())
+	}
+
+	logger.Info("GetStackName", "name", stackName, "uid", instance.UID)
+	return stackName
 }
 
 func (cf *CloudFormationHelper) GetStackResources(ctx context.Context, stackId string) ([]v1beta1.StackResource, error) {

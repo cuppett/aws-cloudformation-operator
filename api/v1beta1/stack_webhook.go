@@ -27,6 +27,7 @@ package v1beta1
 import (
 	coreerrors "errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"regexp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -48,6 +49,10 @@ var (
 	ErrRoleArnTooShort    = coreerrors.New("Role ARN length must be at least 20 characters.")
 	ErrCannotChangeOnFail = coreerrors.New("You cannot change/update onFailure after create.")
 	ErrTooManyARNs        = coreerrors.New("You cannot specify more than 5 NotificationARNs.")
+	ErrCannotRenameStacks = coreerrors.New("You cannot change the name of a stack after creation.")
+	ErrStackNameTooLong   = coreerrors.New("Stack names limited to 64 characters.")
+	ErrStackNameFormat    = coreerrors.New("Stack name can include letters (A-Z and a-z), numbers (0-9), and dashes (-). Must start with a letter.")
+	nameRegex, _          = regexp.Compile("^[a-zA-Z][a-zA-Z0-9\\-]*$")
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -81,6 +86,14 @@ func (r *Stack) ValidateCreate() error {
 		return ErrTooManyARNs
 	}
 
+	if len(r.Spec.StackName) > 64 {
+		return ErrStackNameTooLong
+	}
+
+	if r.Spec.StackName != "" && !nameRegex.Match([]byte(r.Spec.StackName)) {
+		return ErrStackNameFormat
+	}
+
 	return nil
 }
 
@@ -97,6 +110,10 @@ func (r *Stack) ValidateUpdate(old runtime.Object) error {
 
 	if r.Spec.OnFailure != oldStack.Spec.OnFailure {
 		return ErrCannotChangeOnFail
+	}
+
+	if r.Spec.StackName != oldStack.Spec.StackName {
+		return ErrCannotRenameStacks
 	}
 
 	return r.ValidateCreate()

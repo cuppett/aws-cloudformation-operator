@@ -352,9 +352,24 @@ kind: Stack
 metadata:
   name: my-stack
 spec:
+  onFailure: DELETE
   template: |
     ...
-  onFailure: DELETE
+```
+
+#### stackName
+
+To set the stack name on creation use `stackName`:
+
+```yaml
+apiVersion: cloudformation.cuppett.com/v1beta1
+kind: Stack
+metadata:
+  name: my-stack
+spec:
+  stackName: well-hello-there  
+  template: |
+    ...
 ```
 
 ## Deploying to a Cluster

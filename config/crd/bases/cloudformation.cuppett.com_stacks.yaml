@@ -52,6 +52,8 @@ spec:
                 type: object
               roleArn:
                 type: string
+              stackName:
+                type: string
               tags:
                 additionalProperties:
                   type: string

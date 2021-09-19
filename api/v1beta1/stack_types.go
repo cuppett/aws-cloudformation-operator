@@ -50,6 +50,9 @@ type StackSpec struct {
 	RoleARN string `json:"roleArn,omitempty"`
 	// +kubebuilder:validation:Optional
 	// +optional
+	StackName string `json:"stackName,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +optional
 	Tags map[string]string `json:"tags,omitempty"`
 
 	// TODO: can't make one of fields required until https://github.com/kubernetes-sigs/controller-tools/issues/461 is supported
