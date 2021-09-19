@@ -27,6 +27,7 @@ package controllers
 
 import (
 	"context"
+	"github.com/prometheus/client_golang/prometheus"
 	"reflect"
 	"sync"
 	"time"
@@ -46,6 +47,8 @@ type StackFollower struct {
 	Log                  logr.Logger
 	CloudFormationHelper *CloudFormationHelper
 	SubmissionChannel    chan *v1beta1.Stack
+	StacksFollowing      prometheus.Gauge
+	StacksFollowed       prometheus.Counter
 	// StackID -> Kube Stack object
 	mapPollingList sync.Map
 }
@@ -74,12 +77,15 @@ func (f *StackFollower) startFollowing(stack *v1beta1.Stack) {
 	namespacedName := &types.NamespacedName{Name: stack.Name, Namespace: stack.Namespace}
 	f.mapPollingList.Store(stack.Status.StackID, namespacedName)
 	f.Log.Info("Now following Stack", "StackID", stack.Status.StackID)
+	f.StacksFollowed.Inc()
+	f.StacksFollowing.Inc()
 }
 
 // Identify if the follower is actively working this one.
 func (f *StackFollower) stopFollowing(stackId string) {
 	f.mapPollingList.Delete(stackId)
 	f.Log.Info("Stopped following Stack", "StackID", stackId)
+	f.StacksFollowing.Dec()
 }
 
 // Allow passing a current/recent fetch of the stack object to the method (optionally)
@@ -210,7 +216,9 @@ func (f *StackFollower) processStack(key interface{}, value interface{}) bool {
 		if err != nil {
 			log.Error(err, "Failed to update stack status")
 			// On error put it back to make sure we save it next time.
-			f.startFollowing(stack)
+			if !f.BeingFollowed(stack.Status.StackID) {
+				f.startFollowing(stack)
+			}
 		}
 	}
 

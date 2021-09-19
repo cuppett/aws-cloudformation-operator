@@ -28,7 +28,9 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/prometheus/client_golang/prometheus"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -179,9 +181,23 @@ func main() {
 		Log:                  ctrl.Log.WithName("workers").WithName("Stack"),
 		SubmissionChannel:    make(chan *cloudformationv1beta1.Stack),
 		CloudFormationHelper: cfHelper,
+		StacksFollowing: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Name: "cloudformation_stacks_following",
+				Help: "Number of CloudFormation stacks being followed currently",
+			},
+		),
+		StacksFollowed: prometheus.NewCounter(
+			prometheus.CounterOpts{
+				Name: "cloudformation_stacks_followed",
+				Help: "Total number of CloudFormation stacks followed (lifetime)",
+			},
+		),
 	}
 	go stackFollower.Receiver()
 	go stackFollower.Worker()
+	metrics.Registry.MustRegister(stackFollower.StacksFollowing)
+	metrics.Registry.MustRegister(stackFollower.StacksFollowed)
 
 	if err = (&controllers.StackReconciler{
 		Client:               mgr.GetClient(),
