@@ -34,13 +34,11 @@ import (
 	cfTypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/cuppett/cloudformation-operator/api/v1beta1"
 	"hash/crc32"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"strings"
 )
 
 var (
 	ErrStackNotFound = coreerrors.New("stack not found")
-	logger           = ctrl.Log.WithName("helper")
 )
 
 type CloudFormationHelper struct {
@@ -62,7 +60,6 @@ func (cf *CloudFormationHelper) StackInTerminalState(status cfTypes.StackStatus)
 func (cf *CloudFormationHelper) GetStack(ctx context.Context, instance *v1beta1.Stack) (*cfTypes.Stack, error) {
 	// Must use the stack ID to get details/finalization for deleted stacks
 	name := cf.GetStackName(ctx, instance, true)
-	logger.Info("Get Stack", "name", name, "uid", instance.UID)
 
 	resp, err := cf.CloudFormation.DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
 		NextToken: nil,
@@ -100,7 +97,6 @@ func (cf *CloudFormationHelper) GetStackName(ctx context.Context, instance *v1be
 		stackName = stackName + "-" + fmt.Sprintf("%08x", checkSum.Sum32())
 	}
 
-	logger.Info("GetStackName", "name", stackName, "uid", instance.UID)
 	return stackName
 }
 

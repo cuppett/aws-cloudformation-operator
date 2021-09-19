@@ -75,6 +75,7 @@ type StackLoop struct {
 	req      ctrl.Request
 	instance *v1beta1.Stack
 	stack    *cfTypes.Stack
+	Log      logr.Logger
 }
 
 // +kubebuilder:rbac:groups=cloudformation.cuppett.com,resources=stacks,verbs=get;list;watch;create;update;patch;delete
@@ -87,9 +88,8 @@ type StackLoop struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.7.0/pkg/reconcile
 func (r *StackReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)
-
-	loop := &StackLoop{ctx, req, &v1beta1.Stack{}, nil}
+	loop := &StackLoop{ctx, req, &v1beta1.Stack{}, nil,
+		r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)}
 
 	// Fetch the Stack instance
 	err := r.Client.Get(loop.ctx, loop.req.NamespacedName, loop.instance)
@@ -98,12 +98,16 @@ func (r *StackReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			r.Log.Info("Stack resource not found. Ignoring since object must be deleted")
+			loop.Log.Info("Stack resource not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		r.Log.Error(err, "Failed to get Stack")
+		loop.Log.Error(err, "Failed to get Stack")
 		return ctrl.Result{}, err
+	}
+
+	if loop.instance.Status.StackStatus != "" {
+		loop.Log = loop.Log.WithValues("stackName", loop.instance.Status.StackID)
 	}
 
 	// Check if the Stack instance is marked to be deleted, which is
@@ -119,17 +123,17 @@ func (r *StackReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 				controllerutil.RemoveFinalizer(loop.instance, legacyFinalizer)
 				err := r.Update(loop.ctx, loop.instance)
 				if err != nil {
-					r.Log.Error(err, "Failed to update stack to drop finalizer")
+					loop.Log.Error(err, "Failed to update stack to drop finalizer")
 					return ctrl.Result{}, err
 				}
-				r.Log.Info("Successfully finalized stack")
+				loop.Log.Info("Successfully finalized stack")
 			} else {
 				// Run finalization logic for stacksFinalizer. If the
 				// finalization logic fails, don't remove the finalizer so
 				// that we can retry during the next reconciliation.
 				err := r.deleteStack(loop)
 				if err != nil {
-					r.Log.Error(err, "Failed to delete stack")
+					loop.Log.Error(err, "Failed to delete stack")
 					return ctrl.Result{}, err
 				}
 			}
@@ -168,22 +172,25 @@ func (r *StackReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 }
 
 func (r *StackReconciler) createStack(loop *StackLoop) error {
-	r.Log.WithValues("stack", loop.instance.Name).Info("creating stack")
+	loop.Log.Info("Creating stack")
 
 	if r.DryRun {
-		r.Log.WithValues("stack", loop.instance.Name).Info("skipping stack creation")
+		loop.Log.Info("Skipping stack creation")
 		return nil
 	}
 
 	stackTags, err := r.stackTags(loop)
 	if err != nil {
-		r.Log.WithValues("stack", loop.instance.Name).Error(err, "error compiling tags")
+		loop.Log.Error(err, "Error compiling tags")
 		return err
 	}
 
+	stackName := r.CloudFormationHelper.GetStackName(loop.ctx, loop.instance, false)
+	loop.Log = loop.Log.WithValues("stackName", stackName)
+
 	input := &cloudformation.CreateStackInput{
 		Capabilities: r.DefaultCapabilities,
-		StackName:    aws.String(r.CloudFormationHelper.GetStackName(loop.ctx, loop.instance, false)),
+		StackName:    aws.String(stackName),
 		Parameters:   r.stackParameters(loop),
 		Tags:         stackTags,
 	}
@@ -195,7 +202,7 @@ func (r *StackReconciler) createStack(loop *StackLoop) error {
 	input.NotificationARNs = loop.instance.Spec.NotificationArns
 
 	if loop.instance.Spec.Template == "" && loop.instance.Spec.TemplateUrl == "" {
-		r.Log.WithValues("stack", loop.instance.Name).Error(ErrMissingTemplateSpec, "missing template spec")
+		loop.Log.Error(ErrMissingTemplateSpec, "Missing template spec")
 		return ErrMissingTemplateSpec
 	}
 
@@ -220,24 +227,25 @@ func (r *StackReconciler) createStack(loop *StackLoop) error {
 }
 
 func (r *StackReconciler) updateStack(loop *StackLoop) error {
-	r.Log.WithValues("stack", loop.instance.Name).Info("updating stack")
+	loop.Log.Info("Updating stack")
 
 	if r.DryRun {
-		r.Log.WithValues("stack", loop.instance.Name).Info("skipping stack update")
+		loop.Log.Info("Skipping stack update")
 		return nil
 	}
 
 	stackTags, err := r.stackTags(loop)
 	if err != nil {
-		r.Log.WithValues("stack", loop.instance.Name).Error(err, "error compiling tags")
+		loop.Log.Error(err, "Error compiling tags")
 		return err
 	}
 
 	stackName := r.CloudFormationHelper.GetStackName(loop.ctx, loop.instance, true)
-	r.Log.Info("Unreal", "stack", stackName)
+	loop.Log = loop.Log.WithValues("stackName", stackName)
+
 	input := &cloudformation.UpdateStackInput{
 		Capabilities: r.DefaultCapabilities,
-		StackName:    aws.String(r.CloudFormationHelper.GetStackName(loop.ctx, loop.instance, true)),
+		StackName:    aws.String(stackName),
 		Parameters:   r.stackParameters(loop),
 		Tags:         stackTags,
 	}
@@ -249,7 +257,7 @@ func (r *StackReconciler) updateStack(loop *StackLoop) error {
 	}
 
 	if loop.instance.Spec.Template == "" && loop.instance.Spec.TemplateUrl == "" {
-		r.Log.WithValues("stack", loop.instance.Name).Error(ErrMissingTemplateSpec, "missing template spec")
+		loop.Log.Error(ErrMissingTemplateSpec, "Missing template spec")
 		return ErrMissingTemplateSpec
 	}
 
@@ -261,10 +269,10 @@ func (r *StackReconciler) updateStack(loop *StackLoop) error {
 
 	if _, err := r.CloudFormation.UpdateStack(loop.ctx, input); err != nil {
 		if strings.Contains(err.Error(), "No updates are to be performed.") {
-			r.Log.WithValues("stack", loop.instance.Name).Info("stack already updated")
+			loop.Log.Info("Stack already updated")
 			err = r.StackFollower.UpdateStackStatus(loop.ctx, loop.instance)
 		} else if strings.Contains(err.Error(), "does not exist") {
-			r.Log.WithValues("stack", loop.instance.Name).Info("Stack does not exist in AWS. Re-creating it.")
+			loop.Log.Info("Stack does not exist in AWS. Re-creating it.")
 			return r.createStack(loop)
 		}
 		return err
@@ -275,10 +283,10 @@ func (r *StackReconciler) updateStack(loop *StackLoop) error {
 }
 
 func (r *StackReconciler) deleteStack(loop *StackLoop) error {
-	r.Log.WithValues("stack", loop.instance.Name).Info("deleting stack")
+	loop.Log.Info("Deleting stack")
 
 	if r.DryRun {
-		r.Log.WithValues("stack", loop.instance.Name).Info("skipping stack deletion")
+		loop.Log.Info("Skipping stack deletion")
 		return nil
 	}
 
@@ -288,7 +296,7 @@ func (r *StackReconciler) deleteStack(loop *StackLoop) error {
 	}
 
 	if !hasOwnership {
-		r.Log.WithValues("stack", loop.instance.Name).Info("no ownership")
+		loop.Log.Info("No ownership")
 		return nil
 	}
 

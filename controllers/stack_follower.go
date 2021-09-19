@@ -87,6 +87,8 @@ func (f *StackFollower) UpdateStackStatus(ctx context.Context, instance *v1beta1
 	var err error
 	var cfs *cfTypes.Stack
 	update := false
+	log := f.Log.WithValues("StackID", instance.Status.StackID, "UID", instance.UID, "Namespace",
+		instance.Namespace, "Name", instance.Name)
 
 	if len(stack) > 0 {
 		cfs = stack[0]
@@ -94,7 +96,7 @@ func (f *StackFollower) UpdateStackStatus(ctx context.Context, instance *v1beta1
 	if cfs == nil {
 		cfs, err = f.CloudFormationHelper.GetStack(ctx, instance)
 		if err != nil {
-			f.Log.Error(err, "Failed to get CloudFormation stack")
+			log.Error(err, "Failed to get CloudFormation stack")
 			return err
 		}
 	}
@@ -141,7 +143,7 @@ func (f *StackFollower) UpdateStackStatus(ctx context.Context, instance *v1beta1
 	// Recording all stack resources
 	resources, err := f.CloudFormationHelper.GetStackResources(ctx, instance.Status.StackID)
 	if err != nil {
-		f.Log.Error(err, "Failed to get Stack Resources")
+		log.Error(err, "Failed to get Stack Resources")
 		return err
 	}
 	if !reflect.DeepEqual(resources, instance.Status.Resources) {
@@ -152,7 +154,7 @@ func (f *StackFollower) UpdateStackStatus(ctx context.Context, instance *v1beta1
 	if update {
 		err = f.Status().Update(ctx, instance)
 		if err != nil {
-			f.Log.Error(err, "Failed to update Stack Status")
+			log.Error(err, "Failed to update Stack Status")
 			if errors.IsNotFound(err) {
 				// Request object not found, could have been deleted after reconcile request.
 				// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
@@ -174,6 +176,8 @@ func (f *StackFollower) processStack(key interface{}, value interface{}) bool {
 	stackId := key.(string)
 	namespacedName := value.(*types.NamespacedName)
 	stack := &v1beta1.Stack{}
+	log := f.Log.WithValues("StackID", stackId, "Namespace",
+		namespacedName.Namespace, "Name", namespacedName.Name)
 
 	// Fetch the Stack instance
 	err := f.Client.Get(context.TODO(), *namespacedName, stack)
@@ -187,14 +191,15 @@ func (f *StackFollower) processStack(key interface{}, value interface{}) bool {
 		f.Log.Error(err, "Failed to get Stack on this pass, requeuing")
 		return true
 	}
+	log = log.WithValues("UID", stack.UID)
 
 	cfs, err := f.CloudFormationHelper.GetStack(context.TODO(), stack)
 	if err != nil {
 		if err == ErrStackNotFound {
-			f.Log.Error(err, "Stack Not Found", "UID", stack.UID, "Stack ID", stackId)
+			log.Error(err, "Stack Not Found")
 			f.stopFollowing(stackId)
 		} else {
-			f.Log.Error(err, "Error retrieving stack for processing", "UID", stack.UID, "Stack ID", stackId)
+			log.Error(err, "Error retrieving stack for processing")
 		}
 	} else {
 		// Have to remove the lock on the last pass, so the reconciler can catch it on the next loop.
@@ -203,7 +208,7 @@ func (f *StackFollower) processStack(key interface{}, value interface{}) bool {
 		}
 		err = f.UpdateStackStatus(context.TODO(), stack, cfs)
 		if err != nil {
-			f.Log.Error(err, "Failed to update stack status", "UID", stack.UID, "Stack ID", stackId)
+			log.Error(err, "Failed to update stack status")
 			// On error put it back to make sure we save it next time.
 			f.startFollowing(stack)
 		}
