@@ -86,7 +86,7 @@ type StackLoop struct {
 // move the current state of the cluster closer to the desired state.
 //
 // For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.7.0/pkg/reconcile
+// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.3/pkg/reconcile
 func (r *StackReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	loop := &StackLoop{ctx, req, &v1beta1.Stack{}, nil,
 		r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)}

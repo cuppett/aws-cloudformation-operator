@@ -7,6 +7,7 @@ updates:
     time: "07:00"
   ignore:
   - dependency-name: "k8s.io/client-go"
+  - dependency-name: "k8s.io/api"
   - dependency-name: "k8s.io/apimachinery"
   - dependency-name: "sigs.k8s.io/controller-runtime"
   open-pull-requests-limit: 10
