@@ -2,7 +2,7 @@
 MIT License
 
 Copyright (c) 2018 Martin Linkhorst
-Copyright (c) 2021 Stephen Cuppett
+Copyright (c) 2022 Stephen Cuppett
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ import (
 	coreerrors "errors"
 	"strings"
 
-	"github.com/cuppett/cloudformation-operator/api/v1beta1"
+	"github.com/cuppett/aws-cloudformation-controller/api/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -47,9 +47,9 @@ import (
 
 const (
 	controllerKey   = "kubernetes.io/controlled-by"
-	controllerValue = "cloudformation.cuppett.com/operator"
-	legacyFinalizer = "finalizer.cloudformation.cuppett.com"
-	stacksFinalizer = "cloudformation.cuppett.com/finalizer"
+	controllerValue = "cloudformation.services.k8s.aws.cuppett.dev/controller"
+	legacyFinalizer = "finalizer.cloudformation.services.k8s.aws.cuppett.dev"
+	stacksFinalizer = "cloudformation.services.k8s.aws.cuppett.dev/finalizer"
 	ownerKey        = "kubernetes.io/owned-by"
 )
 
@@ -73,14 +73,14 @@ type StackReconciler struct {
 type StackLoop struct {
 	ctx      context.Context
 	req      ctrl.Request
-	instance *v1beta1.Stack
+	instance *v1alpha1.Stack
 	stack    *cfTypes.Stack
 	Log      logr.Logger
 }
 
-// +kubebuilder:rbac:groups=cloudformation.cuppett.com,resources=stacks,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=cloudformation.cuppett.com,resources=stacks/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=cloudformation.cuppett.com,resources=stacks/finalizers,verbs=update
+// +kubebuilder:rbac:groups=cloudformation.services.k8s.aws.cuppett.dev,resources=stacks,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=cloudformation.services.k8s.aws.cuppett.dev,resources=stacks/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=cloudformation.services.k8s.aws.cuppett.dev,resources=stacks/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -88,7 +88,7 @@ type StackLoop struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.3/pkg/reconcile
 func (r *StackReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	loop := &StackLoop{ctx, req, &v1beta1.Stack{}, nil,
+	loop := &StackLoop{ctx, req, &v1alpha1.Stack{}, nil,
 		r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)}
 
 	// Fetch the Stack instance
@@ -422,6 +422,6 @@ func (r *StackReconciler) stackTags(loop *StackLoop) ([]cfTypes.Tag, error) {
 // SetupWithManager sets up the controller with the Manager.
 func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1beta1.Stack{}).
+		For(&v1alpha1.Stack{}).
 		Complete(r)
 }

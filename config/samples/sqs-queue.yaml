@@ -1,4 +1,4 @@
-apiVersion: cloudformation.cuppett.com/v1beta1
+apiVersion: cloudformation.services.k8s.aws.cuppett.dev/v1alpha1
 kind: Stack
 metadata:
   name: my-queue

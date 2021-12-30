@@ -38,7 +38,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	cloudformationv1beta1 "github.com/cuppett/cloudformation-operator/api/v1beta1"
+	cloudformationv1beta1 "github.com/cuppett/aws-cloudformation-controller/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 

@@ -2,7 +2,7 @@
 MIT License
 
 Copyright (c) 2018 Martin Linkhorst
-Copyright (c) 2021 Stephen Cuppett
+Copyright (c) 2022 Stephen Cuppett
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -33,7 +33,7 @@ import (
 	"time"
 
 	cfTypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
-	"github.com/cuppett/cloudformation-operator/api/v1beta1"
+	"github.com/cuppett/aws-cloudformation-controller/api/v1alpha1"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,11 +46,10 @@ type StackFollower struct {
 	client.Client
 	Log                  logr.Logger
 	CloudFormationHelper *CloudFormationHelper
-	SubmissionChannel    chan *v1beta1.Stack
+	SubmissionChannel    chan *v1alpha1.Stack
 	StacksFollowing      prometheus.Gauge
 	StacksFollowed       prometheus.Counter
-	// StackID -> Kube Stack object
-	mapPollingList sync.Map
+	mapPollingList       sync.Map // StackID -> Kube Stack object
 }
 
 func (f *StackFollower) Receiver() {
@@ -65,7 +64,7 @@ func (f *StackFollower) Receiver() {
 	}
 }
 
-// Identify if the follower is actively working this one.
+// BeingFollowed Identify if the follower is actively working this one.
 func (f *StackFollower) BeingFollowed(stackId string) bool {
 	_, followed := f.mapPollingList.Load(stackId)
 	f.Log.Info("Following Stack", "StackID", stackId, "Following", followed)
@@ -73,7 +72,7 @@ func (f *StackFollower) BeingFollowed(stackId string) bool {
 }
 
 // Identify if the follower is actively working this one.
-func (f *StackFollower) startFollowing(stack *v1beta1.Stack) {
+func (f *StackFollower) startFollowing(stack *v1alpha1.Stack) {
 	namespacedName := &types.NamespacedName{Name: stack.Name, Namespace: stack.Namespace}
 	f.mapPollingList.Store(stack.Status.StackID, namespacedName)
 	f.Log.Info("Now following Stack", "StackID", stack.Status.StackID)
@@ -88,8 +87,8 @@ func (f *StackFollower) stopFollowing(stackId string) {
 	f.StacksFollowing.Dec()
 }
 
-// Allow passing a current/recent fetch of the stack object to the method (optionally)
-func (f *StackFollower) UpdateStackStatus(ctx context.Context, instance *v1beta1.Stack, stack ...*cfTypes.Stack) error {
+// UpdateStackStatus Allow passing a current/recent fetch of the stack object to the method (optionally)
+func (f *StackFollower) UpdateStackStatus(ctx context.Context, instance *v1alpha1.Stack, stack ...*cfTypes.Stack) error {
 	var err error
 	var cfs *cfTypes.Stack
 	update := false
@@ -181,7 +180,7 @@ func (f *StackFollower) processStack(key interface{}, value interface{}) bool {
 
 	stackId := key.(string)
 	namespacedName := value.(*types.NamespacedName)
-	stack := &v1beta1.Stack{}
+	stack := &v1alpha1.Stack{}
 	log := f.Log.WithValues("StackID", stackId, "Namespace",
 		namespacedName.Namespace, "Name", namespacedName.Name)
 

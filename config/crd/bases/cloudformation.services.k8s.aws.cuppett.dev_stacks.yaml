@@ -6,9 +6,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
-  name: stacks.cloudformation.cuppett.com
+  name: stacks.cloudformation.services.k8s.aws.cuppett.dev
 spec:
-  group: cloudformation.cuppett.com
+  group: cloudformation.services.k8s.aws.cuppett.dev
   names:
     kind: Stack
     listKind: StackList
@@ -16,7 +16,7 @@ spec:
     singular: stack
   scope: Namespaced
   versions:
-  - name: v1beta1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Stack is the Schema for the stacks API

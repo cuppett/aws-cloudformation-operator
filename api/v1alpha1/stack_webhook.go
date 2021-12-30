@@ -1,7 +1,7 @@
 /*
 MIT License
 
-Copyright (c) 2021 Stephen Cuppett
+Copyright (c) 2022 Stephen Cuppett
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-package v1beta1
+package v1alpha1
 
 import (
 	coreerrors "errors"
@@ -58,7 +58,7 @@ var (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-//+kubebuilder:webhook:path=/validate-cloudformation-cuppett-com-v1beta1-stack,mutating=false,failurePolicy=fail,sideEffects=None,groups=cloudformation.cuppett.com,resources=stacks,verbs=create;update,versions=v1beta1,name=vstack.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-cloudformation-services-k8s-aws-cuppett-dev-v1alpha1-stack,mutating=false,failurePolicy=fail,sideEffects=None,groups=cloudformation.services.k8s.aws.cuppett.dev,resources=stacks,verbs=create;update,versions=v1alpha1,name=vstack.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Validator = &Stack{}
 

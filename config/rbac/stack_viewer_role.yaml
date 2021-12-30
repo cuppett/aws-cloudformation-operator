@@ -5,7 +5,7 @@ metadata:
   name: stack-viewer-role
 rules:
 - apiGroups:
-  - cloudformation.cuppett.com
+  - cloudformation.services.k8s.aws.cuppett.dev
   resources:
   - stacks
   verbs:
@@ -13,7 +13,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - cloudformation.cuppett.com
+  - cloudformation.services.k8s.aws.cuppett.dev
   resources:
   - stacks/status
   verbs:

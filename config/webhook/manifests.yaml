@@ -12,14 +12,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-cloudformation-cuppett-com-v1beta1-stack
+      path: /validate-cloudformation-services-k8s-aws-cuppett-dev-v1alpha1-stack
   failurePolicy: Fail
   name: vstack.kb.io
   rules:
   - apiGroups:
-    - cloudformation.cuppett.com
+    - cloudformation.services.k8s.aws.cuppett.dev
     apiVersions:
-    - v1beta1
+    - v1alpha1
     operations:
     - CREATE
     - UPDATE

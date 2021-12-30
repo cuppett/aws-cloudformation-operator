@@ -1,12 +1,12 @@
 # Adds namespace to all resources.
-namespace: cloudformation-operator-system
+namespace: aws-cloudformation-controller-system
 
 # Value of this field is prepended to the
 # names of all resources, e.g. a deployment named
 # "wordpress" becomes "alices-wordpress".
 # Note that it should also match with the prefix (text before '-') of the namespace
 # field above.
-namePrefix: cloudformation-operator-
+namePrefix: aws-cloudformation-controller-
 
 # Labels to add to all resources and selectors.
 #commonLabels:
@@ -28,13 +28,13 @@ secretGenerator:
 - name: aws-keys
   envs:
   - aws-vars.env
-- name: operator-flags
+- name: controller-flags
   envs:
-    - operator-vars.env
+    - controller-vars.env
 
 patchesStrategicMerge:
 # Protect the /metrics endpoint by putting it behind auth.
-# If you want your controller-manager to expose the /metrics
+# If you want your manager to expose the /metrics
 # endpoint w/o any authn/z, please comment the following line.
 - manager_auth_proxy_patch.yaml
 

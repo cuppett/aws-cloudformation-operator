@@ -2,7 +2,7 @@
 MIT License
 
 Copyright (c) 2018 Martin Linkhorst
-Copyright (c) 2021 Stephen Cuppett
+Copyright (c) 2022 Stephen Cuppett
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -52,8 +52,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	cloudformationv1beta1 "github.com/cuppett/cloudformation-operator/api/v1beta1"
-	"github.com/cuppett/cloudformation-operator/controllers"
+	cloudformationv1alpha1 "github.com/cuppett/aws-cloudformation-controller/api/v1alpha1"
+	"github.com/cuppett/aws-cloudformation-controller/controllers"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -66,11 +66,11 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(cloudformationv1beta1.AddToScheme(scheme))
+	utilruntime.Must(cloudformationv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 
 	StackFlagSet = pflag.NewFlagSet("stack", pflag.ExitOnError)
-	StackFlagSet.String("assume-role", "", "Assume AWS role when defined. Useful for stacks in another AWS account. Specify the full ARN, e.g. `arn:aws:iam::123456789:role/cloudformation-operator`")
+	StackFlagSet.String("assume-role", "", "Assume AWS role when defined. Useful for stacks in another AWS account. Specify the full ARN, e.g. `arn:aws:iam::123456789:role/cloudformation-controller`")
 	StackFlagSet.StringToString("tag", map[string]string{}, "Tags to apply to all Stacks by default. Specify multiple times for multiple tags.")
 	StackFlagSet.StringSlice("capability", []string{}, "The AWS CloudFormation capability to enable")
 	StackFlagSet.Bool("dry-run", false, "If true, don't actually do anything.")
@@ -110,7 +110,7 @@ func main() {
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "3680e595.cuppett.com",
+		LeaderElectionID:       "3680e595.cuppett.dev",
 		Namespace:              namespace, // namespaced-scope when the value is not an empty string
 	}
 	// Add support for MultiNamespace set in WATCH_NAMESPACE (e.g ns1,ns2)
@@ -179,7 +179,7 @@ func main() {
 	stackFollower := &controllers.StackFollower{
 		Client:               mgr.GetClient(),
 		Log:                  ctrl.Log.WithName("workers").WithName("Stack"),
-		SubmissionChannel:    make(chan *cloudformationv1beta1.Stack),
+		SubmissionChannel:    make(chan *cloudformationv1alpha1.Stack),
 		CloudFormationHelper: cfHelper,
 		StacksFollowing: prometheus.NewGauge(
 			prometheus.GaugeOpts{
@@ -213,7 +213,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Stack")
 		os.Exit(1)
 	}
-	if err = (&cloudformationv1beta1.Stack{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&cloudformationv1alpha1.Stack{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Stack")
 		os.Exit(1)
 	}

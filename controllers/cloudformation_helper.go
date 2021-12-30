@@ -2,7 +2,7 @@
 MIT License
 
 Copyright (c) 2018 Martin Linkhorst
-Copyright (c) 2021 Stephen Cuppett
+Copyright (c) 2022 Stephen Cuppett
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -32,7 +32,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	cfTypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
-	"github.com/cuppett/cloudformation-operator/api/v1beta1"
+	"github.com/cuppett/aws-cloudformation-controller/api/v1alpha1"
 	"hash/crc32"
 	"strings"
 )
@@ -57,7 +57,7 @@ func (cf *CloudFormationHelper) StackInTerminalState(status cfTypes.StackStatus)
 	return false
 }
 
-func (cf *CloudFormationHelper) GetStack(ctx context.Context, instance *v1beta1.Stack) (*cfTypes.Stack, error) {
+func (cf *CloudFormationHelper) GetStack(ctx context.Context, instance *v1alpha1.Stack) (*cfTypes.Stack, error) {
 	// Must use the stack ID to get details/finalization for deleted stacks
 	name := cf.GetStackName(ctx, instance, true)
 
@@ -78,7 +78,7 @@ func (cf *CloudFormationHelper) GetStack(ctx context.Context, instance *v1beta1.
 	return &resp.Stacks[0], nil
 }
 
-func (cf *CloudFormationHelper) GetStackName(ctx context.Context, instance *v1beta1.Stack, allowID bool) string {
+func (cf *CloudFormationHelper) GetStackName(ctx context.Context, instance *v1alpha1.Stack, allowID bool) string {
 	var stackName string
 
 	if instance.Status.StackID != "" && allowID {
@@ -100,11 +100,11 @@ func (cf *CloudFormationHelper) GetStackName(ctx context.Context, instance *v1be
 	return stackName
 }
 
-func (cf *CloudFormationHelper) GetStackResources(ctx context.Context, stackId string) ([]v1beta1.StackResource, error) {
+func (cf *CloudFormationHelper) GetStackResources(ctx context.Context, stackId string) ([]v1alpha1.StackResource, error) {
 
 	var next *string
 	next = nil
-	toReturn := make([]v1beta1.StackResource, 0)
+	toReturn := make([]v1alpha1.StackResource, 0)
 
 	for {
 		resp, err := cf.CloudFormation.ListStackResources(ctx, &cloudformation.ListStackResourcesInput{
@@ -125,7 +125,7 @@ func (cf *CloudFormationHelper) GetStackResources(ctx context.Context, stackId s
 				physicalID = *e.PhysicalResourceId
 			}
 
-			resourceSummary := v1beta1.StackResource{
+			resourceSummary := v1alpha1.StackResource{
 				LogicalId:    *e.LogicalResourceId,
 				PhysicalId:   physicalID,
 				Type:         *e.ResourceType,

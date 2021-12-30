@@ -8,4 +8,4 @@ webhook:
   port: 9443
 leaderElection:
   leaderElect: true
-  resourceName: 3680e595.cuppett.com
+  resourceName: 3680e595.cuppett.dev
