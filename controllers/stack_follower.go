@@ -53,20 +53,17 @@ type StackFollower struct {
 }
 
 func (f *StackFollower) Receiver() {
-
 	for {
 		toBeFollowed := <-f.ChannelHub.FollowChannel
-		f.Log.Info("Received follow request", "UID", toBeFollowed.UID, "Stack ID", toBeFollowed.Status.StackID)
-		if !f.BeingFollowed(toBeFollowed.Status.StackID) {
+		if !f.beingFollowed(toBeFollowed.Status.StackID) {
 			f.startFollowing(toBeFollowed)
 		}
 	}
 }
 
-// BeingFollowed Identify if the follower is actively working this one.
-func (f *StackFollower) BeingFollowed(stackId string) bool {
+// Identify if the follower is actively working this one.
+func (f *StackFollower) beingFollowed(stackId string) bool {
 	_, followed := f.mapPollingList.Load(stackId)
-	f.Log.Info("Following Stack", "StackID", stackId, "Following", followed)
 	return followed
 }
 
@@ -211,6 +208,7 @@ func (f *StackFollower) processStack(key interface{}, value interface{}) bool {
 			log.Error(err, "Failed to update stack status")
 		} else if f.CloudFormationHelper.StackInTerminalState(cfs.StackStatus) {
 			f.stopFollowing(stackId)
+			f.ChannelHub.MappingChannel <- stack
 		}
 	}
 

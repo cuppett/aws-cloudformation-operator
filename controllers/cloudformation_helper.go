@@ -45,7 +45,7 @@ type CloudFormationHelper struct {
 	CloudFormation *cloudformation.Client
 }
 
-// Identify if the follower considers the state identified as terminal.
+// StackInTerminalState Identify if the follower considers the state identified as terminal.
 func (cf *CloudFormationHelper) StackInTerminalState(status cfTypes.StackStatus) bool {
 	statusString := string(status)
 	if strings.HasSuffix(statusString, "_COMPLETE") {

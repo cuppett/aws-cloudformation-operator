@@ -185,6 +185,7 @@ func main() {
 		Client:     mgr.GetClient(),
 		Log:        ctrl.Log.WithName("workers").WithName("Stack"),
 		ChannelHub: *channelHub,
+		Scheme:     mgr.GetScheme(),
 	}
 	go mapWriter.Worker()
 

@@ -88,7 +88,7 @@ spec:
           periodSeconds: 10
         resources:
           requests:
-            cpu: 2m
-            memory: 45Mi
+            cpu: 5m
+            memory: 100Mi
       serviceAccountName: manager
       terminationGracePeriodSeconds: 10

@@ -25,21 +25,70 @@ SOFTWARE.
 package controllers
 
 import (
+	"context"
+	"github.com/cuppett/aws-cloudformation-controller/api/v1alpha1"
 	"github.com/go-logr/logr"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type MapWriter struct {
 	client.Client
 	Log logr.Logger
 	ChannelHub
+	*runtime.Scheme
 }
 
 func (w *MapWriter) Worker() {
 
 	for {
-		toBeFollowed := <-w.ChannelHub.MappingChannel
-		w.Log.Info("Synchronizing map", "UID", toBeFollowed.UID, "Stack ID", toBeFollowed.Status.StackID)
-	}
+		toBeMapped := <-w.ChannelHub.MappingChannel
+		w.Log.Info("Synchronizing map", "Namespace", toBeMapped.Namespace, "Stack ID", toBeMapped.Status.StackID)
 
+		// Getting the map
+		m := &v1.ConfigMap{}
+		created := false
+		namespacedName := types.NamespacedName{Namespace: toBeMapped.Namespace, Name: toBeMapped.Name + "-cm"}
+		err := w.Client.Get(context.TODO(), namespacedName, m)
+		if errors.IsNotFound(err) {
+			w.Log.Info("Map resource not found. To be created.", "Namespace", toBeMapped.Namespace, "Stack ID", toBeMapped.Status.StackID)
+			*m = w.createMap(toBeMapped)
+			created = true
+		}
+
+		// Writing map outputs
+		m.Data = toBeMapped.Status.Outputs
+
+		// Setting the owner reference
+		err = controllerutil.SetControllerReference(toBeMapped, m, w.Scheme)
+		if err != nil {
+			w.Log.Error(err, "Unable to set controller owner.", "Namespace", toBeMapped.Namespace, "Name", m.Name, "Stack ID", toBeMapped.Status.StackID)
+		} else {
+			if created {
+				err = w.Client.Create(context.TODO(), m)
+			} else {
+				err = w.Client.Update(context.TODO(), m)
+			}
+		}
+
+		if err != nil {
+			w.Log.Error(err, "Failed to create or update map.", "Namespace", toBeMapped.Namespace, "Name", m.Name, "Stack ID", toBeMapped.Status.StackID)
+		} else {
+			w.Log.Info("Map written", "Namespace", toBeMapped.Namespace, "Name", m.Name, "Stack ID", toBeMapped.Status.StackID)
+		}
+	}
+}
+
+func (w *MapWriter) createMap(stack *v1alpha1.Stack) v1.ConfigMap {
+	return v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      stack.Name + "-cm",
+			Namespace: stack.Namespace,
+		},
+	}
 }
