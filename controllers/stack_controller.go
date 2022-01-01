@@ -28,6 +28,7 @@ package controllers
 import (
 	"context"
 	coreerrors "errors"
+	v1 "k8s.io/api/core/v1"
 	"strings"
 
 	"github.com/cuppett/aws-cloudformation-controller/api/v1alpha1"
@@ -60,10 +61,10 @@ var (
 // StackReconciler reconciles a Stack object
 type StackReconciler struct {
 	client.Client
+	ChannelHub
 	Log                  logr.Logger
 	Scheme               *runtime.Scheme
 	CloudFormation       *cloudformation.Client
-	StackFollower        *StackFollower
 	CloudFormationHelper *CloudFormationHelper
 	DefaultTags          map[string]string
 	DefaultCapabilities  []cfTypes.Capability
@@ -78,6 +79,7 @@ type StackLoop struct {
 	Log      logr.Logger
 }
 
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=cloudformation.services.k8s.aws.cuppett.dev,resources=stacks,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=cloudformation.services.k8s.aws.cuppett.dev,resources=stacks/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=cloudformation.services.k8s.aws.cuppett.dev,resources=stacks/finalizers,verbs=update
@@ -160,7 +162,7 @@ func (r *StackReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			// If it is being followed, we want the same thing, just send it over to the other thread to check it in all
 			// IN_PROGRESS cases.
 			if !r.CloudFormationHelper.StackInTerminalState(loop.stack.StackStatus) {
-				r.StackFollower.SubmissionChannel <- loop.instance
+				r.ChannelHub.FollowChannel <- loop.instance
 				return ctrl.Result{}, nil
 			}
 
@@ -222,7 +224,7 @@ func (r *StackReconciler) createStack(loop *StackLoop) error {
 	}
 	loop.instance.Status.StackID = *output.StackId
 
-	r.StackFollower.SubmissionChannel <- loop.instance
+	r.ChannelHub.FollowChannel <- loop.instance
 	return nil
 }
 
@@ -270,16 +272,14 @@ func (r *StackReconciler) updateStack(loop *StackLoop) error {
 	if _, err := r.CloudFormation.UpdateStack(loop.ctx, input); err != nil {
 		if strings.Contains(err.Error(), "No updates are to be performed.") {
 			loop.Log.Info("Stack already updated")
-			err = r.StackFollower.UpdateStackStatus(loop.ctx, loop.instance)
 		} else if strings.Contains(err.Error(), "does not exist") {
 			loop.Log.Info("Stack does not exist in AWS. Re-creating it.")
 			return r.createStack(loop)
 		}
-		return err
 	}
 
-	r.StackFollower.SubmissionChannel <- loop.instance
-	return nil
+	r.ChannelHub.FollowChannel <- loop.instance
+	return err
 }
 
 func (r *StackReconciler) deleteStack(loop *StackLoop) error {
@@ -308,7 +308,7 @@ func (r *StackReconciler) deleteStack(loop *StackLoop) error {
 		return err
 	}
 
-	r.StackFollower.SubmissionChannel <- loop.instance
+	r.ChannelHub.FollowChannel <- loop.instance
 	return nil
 }
 
@@ -423,5 +423,6 @@ func (r *StackReconciler) stackTags(loop *StackLoop) ([]cfTypes.Tag, error) {
 func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Stack{}).
+		Owns(&v1.ConfigMap{}).
 		Complete(r)
 }

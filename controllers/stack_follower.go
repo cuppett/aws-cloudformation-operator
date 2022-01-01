@@ -44,9 +44,9 @@ import (
 // StackFollower ensures a Stack object is monitored until it reaches a terminal state
 type StackFollower struct {
 	client.Client
+	ChannelHub
 	Log                  logr.Logger
 	CloudFormationHelper *CloudFormationHelper
-	SubmissionChannel    chan *v1alpha1.Stack
 	StacksFollowing      prometheus.Gauge
 	StacksFollowed       prometheus.Counter
 	mapPollingList       sync.Map // StackID -> Kube Stack object
@@ -55,12 +55,11 @@ type StackFollower struct {
 func (f *StackFollower) Receiver() {
 
 	for {
-		toBeFollowed := <-f.SubmissionChannel
+		toBeFollowed := <-f.ChannelHub.FollowChannel
 		f.Log.Info("Received follow request", "UID", toBeFollowed.UID, "Stack ID", toBeFollowed.Status.StackID)
 		if !f.BeingFollowed(toBeFollowed.Status.StackID) {
 			f.startFollowing(toBeFollowed)
 		}
-		_ = f.UpdateStackStatus(context.TODO(), toBeFollowed)
 	}
 }
 
@@ -87,8 +86,8 @@ func (f *StackFollower) stopFollowing(stackId string) {
 	f.StacksFollowing.Dec()
 }
 
-// UpdateStackStatus Allow passing a current/recent fetch of the stack object to the method (optionally)
-func (f *StackFollower) UpdateStackStatus(ctx context.Context, instance *v1alpha1.Stack, stack ...*cfTypes.Stack) error {
+// Allow passing a current/recent fetch of the stack object to the method (optionally)
+func (f *StackFollower) updateStackStatus(ctx context.Context, instance *v1alpha1.Stack, stack ...*cfTypes.Stack) error {
 	var err error
 	var cfs *cfTypes.Stack
 	update := false
@@ -207,17 +206,11 @@ func (f *StackFollower) processStack(key interface{}, value interface{}) bool {
 			log.Error(err, "Error retrieving stack for processing")
 		}
 	} else {
-		// Have to remove the lock on the last pass, so the reconciler can catch it on the next loop.
-		if f.CloudFormationHelper.StackInTerminalState(cfs.StackStatus) {
-			f.stopFollowing(stackId)
-		}
-		err = f.UpdateStackStatus(context.TODO(), stack, cfs)
+		err = f.updateStackStatus(context.TODO(), stack, cfs)
 		if err != nil {
 			log.Error(err, "Failed to update stack status")
-			// On error put it back to make sure we save it next time.
-			if !f.BeingFollowed(stack.Status.StackID) {
-				f.startFollowing(stack)
-			}
+		} else if f.CloudFormationHelper.StackInTerminalState(cfs.StackStatus) {
+			f.stopFollowing(stackId)
 		}
 	}
 
@@ -225,10 +218,8 @@ func (f *StackFollower) processStack(key interface{}, value interface{}) bool {
 }
 
 func (f *StackFollower) Worker() {
-
 	for {
-		time.Sleep(time.Second * 5)
+		time.Sleep(time.Second)
 		f.mapPollingList.Range(f.processStack)
 	}
-
 }

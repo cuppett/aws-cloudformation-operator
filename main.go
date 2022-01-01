@@ -176,10 +176,22 @@ func main() {
 		CloudFormation: client,
 	}
 
+	channelHub := &controllers.ChannelHub{
+		MappingChannel: make(chan *cloudformationv1alpha1.Stack),
+		FollowChannel:  make(chan *cloudformationv1alpha1.Stack),
+	}
+
+	mapWriter := &controllers.MapWriter{
+		Client:     mgr.GetClient(),
+		Log:        ctrl.Log.WithName("workers").WithName("Stack"),
+		ChannelHub: *channelHub,
+	}
+	go mapWriter.Worker()
+
 	stackFollower := &controllers.StackFollower{
 		Client:               mgr.GetClient(),
 		Log:                  ctrl.Log.WithName("workers").WithName("Stack"),
-		SubmissionChannel:    make(chan *cloudformationv1alpha1.Stack),
+		ChannelHub:           *channelHub,
 		CloudFormationHelper: cfHelper,
 		StacksFollowing: prometheus.NewGauge(
 			prometheus.GaugeOpts{
@@ -201,10 +213,10 @@ func main() {
 
 	if err = (&controllers.StackReconciler{
 		Client:               mgr.GetClient(),
+		ChannelHub:           *channelHub,
 		Log:                  ctrl.Log.WithName("controllers").WithName("Stack"),
 		Scheme:               mgr.GetScheme(),
 		CloudFormation:       client,
-		StackFollower:        stackFollower,
 		CloudFormationHelper: cfHelper,
 		DefaultTags:          defaultTags,
 		DefaultCapabilities:  defaultCapabilities,
