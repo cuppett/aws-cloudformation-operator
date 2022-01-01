@@ -164,8 +164,8 @@ It's a simple key/value map.
 
 ### Outputs
 
-Furthermore, CloudFormation supports so called `Outputs`. These can be used for dynamic values that are only known after 
-a stack has been created.
+Furthermore, CloudFormation supports `Outputs`. 
+These can be used for dynamic values that are only known after a stack has been created.
 In our example, we don't define a particular S3 bucket name but instead let AWS generate one for us.
 
 Let's change our CloudFormation template to expose the generated bucket name via an `Output`:
@@ -230,6 +230,29 @@ status:
 In the template we defined an `Output` called `BucketName` that should contain the name of our bucket after stack creation. 
 Looking up the corresponding value under `.status.outputs[BucketName]` reveals that our bucket was named 
 `my-bucket-s3bucket-tarusnslfnsj`.
+
+#### Automatic Output ConfigMap
+
+Furthermore, outputs are written to a `ConfigMap` usable as environment variables, projected volumes and other types of usages within kubernetes.
+The name will be of the form `{StackName}-cm`, see the example below:
+
+```yaml
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: my-bucket-cm
+  ownerReferences:
+    - apiVersion: cloudformation.services.k8s.aws.cuppett.dev/v1alpha1
+      kind: Stack
+      name: my-bucket
+      uid: f204b58e-09fd-49df-9a65-3d740271d2eb
+      controller: true
+      blockOwnerDeletion: true
+data:
+  BucketName: my-bucket-7980b414-s3bucket-o1n9pv47imzx
+```
+
+Existing ConfigMaps with an ownerReference will be ignored
 
 ### Delete stack
 
