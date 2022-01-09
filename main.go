@@ -27,6 +27,7 @@ package main
 
 import (
 	"context"
+	coreerrors "errors"
 	"flag"
 	"github.com/prometheus/client_golang/prometheus"
 	"os"
@@ -161,10 +162,10 @@ func main() {
 	}
 	creds := cfg.Credentials
 
+	stsClient := sts.NewFromConfig(cfg)
 	setupLog.Info(assumeRole)
 	if assumeRole != "" {
 		setupLog.Info("run assume")
-		stsClient := sts.NewFromConfig(cfg)
 		creds = stscreds.NewAssumeRoleProvider(stsClient, assumeRole)
 	}
 
@@ -212,19 +213,25 @@ func main() {
 	metrics.Registry.MustRegister(stackFollower.StacksFollowing)
 	metrics.Registry.MustRegister(stackFollower.StacksFollowed)
 
-	if err = (&controllers.StackReconciler{
-		Client:               mgr.GetClient(),
-		ChannelHub:           *channelHub,
-		Log:                  ctrl.Log.WithName("controllers").WithName("Stack"),
-		Scheme:               mgr.GetScheme(),
-		CloudFormation:       client,
-		CloudFormationHelper: cfHelper,
-		DefaultTags:          defaultTags,
-		DefaultCapabilities:  defaultCapabilities,
-		DryRun:               dryRun,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Stack")
-		os.Exit(1)
+	output, err := stsClient.GetCallerIdentity(context.TODO(), &sts.GetCallerIdentityInput{})
+	if err != nil || output == nil {
+		setupLog.Error(coreerrors.New("AWS identity not found"), "No AWS identity discovered in config.")
+	} else {
+		setupLog.Info("Current AWS identity " + *output.Arn)
+		if err = (&controllers.StackReconciler{
+			Client:               mgr.GetClient(),
+			ChannelHub:           *channelHub,
+			Log:                  ctrl.Log.WithName("controllers").WithName("Stack"),
+			Scheme:               mgr.GetScheme(),
+			CloudFormation:       client,
+			CloudFormationHelper: cfHelper,
+			DefaultTags:          defaultTags,
+			DefaultCapabilities:  defaultCapabilities,
+			DryRun:               dryRun,
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "Stack")
+			os.Exit(1)
+		}
 	}
 	if err = (&cloudformationv1alpha1.Stack{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Stack")

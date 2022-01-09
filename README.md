@@ -437,6 +437,11 @@ Assuming no resources are to be modified by the controller directly, here is the
 ```yaml
 Version: '2012-10-17'
 Statement:
+  - Sid: CallerIdentity
+    Effect: Allow
+    Action:
+      - sts:GetCallerIdentity
+    Resource: "*"
   - Sid: CreateRead
     Effect: Allow
     Action:
