@@ -49,7 +49,6 @@ import (
 const (
 	controllerKey   = "kubernetes.io/controlled-by"
 	controllerValue = "cloudformation.services.k8s.aws.cuppett.dev/controller"
-	legacyFinalizer = "finalizer.cloudformation.services.k8s.aws.cuppett.dev"
 	stacksFinalizer = "cloudformation.services.k8s.aws.cuppett.dev/finalizer"
 	ownerKey        = "kubernetes.io/owned-by"
 )
@@ -116,13 +115,11 @@ func (r *StackReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	// indicated by the deletion timestamp being set.
 	isStackMarkedToBeDeleted := loop.instance.GetDeletionTimestamp() != nil
 	if isStackMarkedToBeDeleted {
-		if controllerutil.ContainsFinalizer(loop.instance, stacksFinalizer) ||
-			controllerutil.ContainsFinalizer(loop.instance, legacyFinalizer) {
+		if controllerutil.ContainsFinalizer(loop.instance, stacksFinalizer) {
 			// Remove stacksFinalizer. Once all finalizers have been
 			// removed, the object will be deleted.
 			if loop.instance.Status.StackStatus == "DELETE_COMPLETE" || loop.instance.Status.StackStatus == "" {
 				controllerutil.RemoveFinalizer(loop.instance, stacksFinalizer)
-				controllerutil.RemoveFinalizer(loop.instance, legacyFinalizer)
 				err := r.Update(loop.ctx, loop.instance)
 				if err != nil {
 					loop.Log.Error(err, "Failed to update stack to drop finalizer")
