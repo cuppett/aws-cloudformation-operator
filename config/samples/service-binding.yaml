@@ -1,0 +1,29 @@
+## Uses the ServiceBinding operator (https://github.com/redhat-developer/service-binding-operator)
+## Can automatically detect the owned ConfigMap or be disabled and explicitly mapped.
+## e.g.:
+
+# Annotation to CloudFormation Stack resource:
+#  annotations:
+#    service.binding/OBJECTSTORE_S3_BUCKET: 'path={.metadata.name}-cm,objectType=ConfigMap,sourceKey=BucketName'
+# or:
+#  annotations:
+#    service.binding/OBJECTSTORE_S3_BUCKET: 'path={.status.outputs.BucketName}'
+
+apiVersion: binding.operators.coreos.com/v1alpha1
+kind: ServiceBinding
+metadata:
+  name: my-bucket-data
+spec:
+  detectBindingResources: true
+  #bindAsFiles: false
+  #namingStrategy: none
+  application:
+    group: apps
+    name: my-deployment
+    resource: deployments
+    version: v1
+  services:
+    - group: cloudformation.services.k8s.aws.cuppett.dev
+      kind: Stack
+      name: my-bucket
+      version: v1alpha1
