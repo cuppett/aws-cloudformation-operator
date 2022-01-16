@@ -4,4 +4,5 @@ resources:
 - cloudfront-cdn.yaml
 - sqs-queue.yaml
 - service_binding.yaml
+- default_config.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

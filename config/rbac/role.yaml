@@ -44,3 +44,29 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - services.k8s.aws.cuppett.dev
+  resources:
+  - configs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - services.k8s.aws.cuppett.dev
+  resources:
+  - configs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - services.k8s.aws.cuppett.dev
+  resources:
+  - configs/status
+  verbs:
+  - get
+  - patch
+  - update

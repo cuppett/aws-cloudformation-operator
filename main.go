@@ -29,10 +29,15 @@ import (
 	"context"
 	coreerrors "errors"
 	"flag"
-	"github.com/prometheus/client_golang/prometheus"
+	cfv1alpha1 "github.com/cuppett/aws-cloudformation-controller/apis/cloudformation.services.k8s.aws/v1alpha1"
+	configv1alpha1 "github.com/cuppett/aws-cloudformation-controller/apis/services.k8s.aws/v1alpha1"
+	"github.com/cuppett/aws-cloudformation-controller/controllers/cloudformation.services.k8s.aws"
+	"github.com/cuppett/aws-cloudformation-controller/controllers/services.k8s.aws"
 	"os"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"strings"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
@@ -52,9 +57,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	cloudformationv1alpha1 "github.com/cuppett/aws-cloudformation-controller/api/v1alpha1"
-	"github.com/cuppett/aws-cloudformation-controller/controllers"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -65,9 +67,10 @@ var (
 )
 
 func init() {
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(cloudformationv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(cfv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(configv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 
 	StackFlagSet = pflag.NewFlagSet("stack", pflag.ExitOnError)
@@ -173,16 +176,16 @@ func main() {
 		o.Credentials = creds
 	})
 
-	cfHelper := &controllers.CloudFormationHelper{
+	cfHelper := &cloudformation_services_k8s_aws.CloudFormationHelper{
 		CloudFormation: client,
 	}
 
-	channelHub := &controllers.ChannelHub{
-		MappingChannel: make(chan *cloudformationv1alpha1.Stack),
-		FollowChannel:  make(chan *cloudformationv1alpha1.Stack),
+	channelHub := &cloudformation_services_k8s_aws.ChannelHub{
+		MappingChannel: make(chan *cfv1alpha1.Stack),
+		FollowChannel:  make(chan *cfv1alpha1.Stack),
 	}
 
-	mapWriter := &controllers.MapWriter{
+	mapWriter := &cloudformation_services_k8s_aws.MapWriter{
 		Client:     mgr.GetClient(),
 		Log:        ctrl.Log.WithName("workers").WithName("Stack"),
 		ChannelHub: *channelHub,
@@ -190,7 +193,7 @@ func main() {
 	}
 	go mapWriter.Worker()
 
-	stackFollower := &controllers.StackFollower{
+	stackFollower := &cloudformation_services_k8s_aws.StackFollower{
 		Client:               mgr.GetClient(),
 		Log:                  ctrl.Log.WithName("workers").WithName("Stack"),
 		ChannelHub:           *channelHub,
@@ -218,7 +221,7 @@ func main() {
 		setupLog.Error(coreerrors.New("AWS identity not found"), "No AWS identity discovered in config.")
 	} else {
 		setupLog.Info("Current AWS identity " + *output.Arn)
-		if err = (&controllers.StackReconciler{
+		if err = (&cloudformation_services_k8s_aws.StackReconciler{
 			Client:               mgr.GetClient(),
 			ChannelHub:           *channelHub,
 			Log:                  ctrl.Log.WithName("controllers").WithName("Stack"),
@@ -233,8 +236,16 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	if err = (&cloudformationv1alpha1.Stack{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&cfv1alpha1.Stack{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Stack")
+		os.Exit(1)
+	}
+
+	if err = (&servicesk8saws.ConfigReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Config")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

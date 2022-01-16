@@ -1,6 +1,7 @@
 domain: cuppett.dev
 layout:
 - go.kubebuilder.io/v3
+multigroup: true
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
 projectName: aws-cloudformation-controller
@@ -15,7 +16,15 @@ resources:
   path: github.com/cuppett/aws-cloudformation-controller/api/v1alpha1
   version: v1alpha1
   webhooks:
-    defaulting: false
     validation: true
     webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cuppett.dev
+  group: services.k8s.aws
+  kind: Config
+  path: github.com/cuppett/aws-cloudformation-controller/api/v1alpha1
+  version: v1alpha1
 version: "3"

@@ -1,0 +1,7 @@
+apiVersion: services.k8s.aws.cuppett.dev/v1alpha1
+kind: Config
+metadata:
+  name: default
+spec:
+  ## To override the default region detected from the infrastructure
+  region: us-east-2

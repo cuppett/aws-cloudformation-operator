@@ -22,13 +22,23 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-package controllers
+// Package v1alpha1 contains API Schema definitions for the services.k8s.aws v1alpha1 API group
+//+kubebuilder:object:generate=true
+//+groupName=services.k8s.aws.cuppett.dev
+package v1alpha1
 
 import (
-	"github.com/cuppett/aws-cloudformation-controller/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
-type ChannelHub struct {
-	MappingChannel chan *v1alpha1.Stack
-	FollowChannel  chan *v1alpha1.Stack
-}
+var (
+	// GroupVersion is group version used to register these objects
+	GroupVersion = schema.GroupVersion{Group: "services.k8s.aws.cuppett.dev", Version: "v1alpha1"}
+
+	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
+	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
+
+	// AddToScheme adds the types in this group-version to the given scheme.
+	AddToScheme = SchemeBuilder.AddToScheme
+)
