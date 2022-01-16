@@ -78,7 +78,6 @@ type StackLoop struct {
 	Log      logr.Logger
 }
 
-// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=cloudformation.services.k8s.aws.cuppett.dev,resources=stacks,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=cloudformation.services.k8s.aws.cuppett.dev,resources=stacks/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=cloudformation.services.k8s.aws.cuppett.dev,resources=stacks/finalizers,verbs=update

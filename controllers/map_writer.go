@@ -44,6 +44,9 @@ type MapWriter struct {
 	*runtime.Scheme
 }
 
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+
+// Worker
 func (w *MapWriter) Worker() {
 
 	for {
