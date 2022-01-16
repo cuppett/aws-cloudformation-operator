@@ -78,6 +78,7 @@ func init() {
 	StackFlagSet.StringToString("tag", map[string]string{}, "Tags to apply to all Stacks by default. Specify multiple times for multiple tags.")
 	StackFlagSet.StringSlice("capability", []string{}, "The AWS CloudFormation capability to enable")
 	StackFlagSet.Bool("dry-run", false, "If true, don't actually do anything.")
+	StackFlagSet.Bool("no-webhook", false, "If true, don't run the webhook server.")
 }
 
 func main() {
@@ -236,9 +237,16 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	if err = (&cfv1alpha1.Stack{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "Stack")
+	noWebHook, err := StackFlagSet.GetBool("no-webhook")
+	if err != nil {
+		setupLog.Error(err, "error parsing flag")
 		os.Exit(1)
+	}
+	if !noWebHook {
+		if err = (&cfv1alpha1.Stack{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Stack")
+			os.Exit(1)
+		}
 	}
 
 	if err = (&servicesk8saws.ConfigReconciler{
