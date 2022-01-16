@@ -33,6 +33,8 @@ IMAGE_TAG_BASE ?= quay.io/cuppett/aws-cloudformation-controller
 
 # Image URL to use all building/pushing image targets
 IMG ?= quay.io/cuppett/aws-cloudformation-controller:latest
+# Namespace assumed for the deployment
+POD_NAMESPACE ?= aws-cloudformation-controller-system
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.22
 
@@ -90,7 +92,7 @@ build: generate fmt vet ## Build manager binary.
 	go build -o bin/manager main.go
 
 run: manifests generate fmt vet ## Run a controller from your host.
-	go run ./main.go
+	go run ./main.go --no-webhook
 
 docker-build: test ## Build docker image with the manager.
 	docker build -t ${IMG} .
