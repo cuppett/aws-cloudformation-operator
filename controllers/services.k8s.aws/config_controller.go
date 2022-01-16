@@ -30,6 +30,9 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"os"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -65,8 +68,32 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Currently only watching the one default config in the running pod namespace.
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&servicesv1alpha1.Config{}).
+		WithEventFilter(predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool {
+				if os.Getenv("POD_NAMESPACE") == e.Object.GetNamespace() && e.Object.GetName() == "default" {
+					return true
+				}
+				return false
+			},
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				if os.Getenv("POD_NAMESPACE") == e.ObjectOld.GetNamespace() && e.ObjectOld.GetName() == "default" {
+					return true
+				}
+				return false
+			},
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				if os.Getenv("POD_NAMESPACE") == e.Object.GetNamespace() && e.Object.GetName() == "default" {
+					return true
+				}
+				return false
+			},
+			GenericFunc: func(e event.GenericEvent) bool {
+				return false
+			},
+		}).
 		Complete(r)
 }
 

@@ -32,7 +32,7 @@ import (
 	cfv1alpha1 "github.com/cuppett/aws-cloudformation-controller/apis/cloudformation.services.k8s.aws/v1alpha1"
 	configv1alpha1 "github.com/cuppett/aws-cloudformation-controller/apis/services.k8s.aws/v1alpha1"
 	"github.com/cuppett/aws-cloudformation-controller/controllers/cloudformation.services.k8s.aws"
-	"github.com/cuppett/aws-cloudformation-controller/controllers/services.k8s.aws"
+	servicesk8saws "github.com/cuppett/aws-cloudformation-controller/controllers/services.k8s.aws"
 	"os"
 	"strings"
 
@@ -83,6 +83,7 @@ func init() {
 
 func main() {
 	var namespace string
+	var watchNamespaces []string
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
@@ -107,6 +108,10 @@ func main() {
 		namespace = os.Getenv("WATCH_NAMESPACE")
 	}
 
+	if namespace != "" {
+		watchNamespaces = strings.Split(namespace, ",")
+	}
+
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	options := ctrl.Options{
@@ -119,11 +124,16 @@ func main() {
 		Namespace:              namespace, // namespaced-scope when the value is not an empty string
 	}
 	// Add support for MultiNamespace set in WATCH_NAMESPACE (e.g ns1,ns2)
-	if strings.Contains(namespace, ",") {
+	if len(watchNamespaces) > 0 {
 		setupLog.Info("manager set up with multiple namespaces", "namespaces", namespace)
+		cacheNamespaces := watchNamespaces
+		configNamespace, exists := os.LookupEnv("POD_NAMESPACE")
+		if exists {
+			cacheNamespaces = append(cacheNamespaces, configNamespace)
+		}
 		// configure cluster-scoped with MultiNamespacedCacheBuilder
 		options.Namespace = ""
-		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(namespace, ","))
+		options.NewCache = cache.MultiNamespacedCacheBuilder(cacheNamespaces)
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
@@ -227,6 +237,7 @@ func main() {
 			ChannelHub:           *channelHub,
 			Log:                  ctrl.Log.WithName("controllers").WithName("Stack"),
 			Scheme:               mgr.GetScheme(),
+			WatchNamespaces:      watchNamespaces,
 			CloudFormation:       client,
 			CloudFormationHelper: cfHelper,
 			DefaultTags:          defaultTags,
@@ -251,6 +262,7 @@ func main() {
 
 	if err = (&servicesk8saws.ConfigReconciler{
 		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("workers").WithName("Config"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Config")

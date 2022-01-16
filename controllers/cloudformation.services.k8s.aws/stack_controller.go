@@ -30,13 +30,14 @@ import (
 	coreerrors "errors"
 	"github.com/cuppett/aws-cloudformation-controller/apis/cloudformation.services.k8s.aws/v1alpha1"
 	v1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"strings"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -63,6 +64,7 @@ type StackReconciler struct {
 	ChannelHub
 	Log                  logr.Logger
 	Scheme               *runtime.Scheme
+	WatchNamespaces      []string
 	CloudFormation       *cloudformation.Client
 	CloudFormationHelper *CloudFormationHelper
 	DefaultTags          map[string]string
@@ -94,14 +96,6 @@ func (r *StackReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	// Fetch the Stack instance
 	err := r.Client.Get(loop.ctx, loop.req.NamespacedName, loop.instance)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			loop.Log.Info("Stack resource not found. Ignoring since object must be deleted")
-			return ctrl.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
 		loop.Log.Error(err, "Failed to get Stack")
 		return ctrl.Result{}, err
 	}
@@ -420,5 +414,29 @@ func (r *StackReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Stack{}).
 		Owns(&v1.ConfigMap{}).
+		WithEventFilter(predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool {
+				return r.isWatchingNamespace(e.Object.GetNamespace())
+			},
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				return r.isWatchingNamespace(e.ObjectOld.GetNamespace())
+			},
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				// Ignoring these since we have a finalizer
+				return false
+			},
+			GenericFunc: func(e event.GenericEvent) bool {
+				return r.isWatchingNamespace(e.Object.GetNamespace())
+			},
+		}).
 		Complete(r)
+}
+
+func (r *StackReconciler) isWatchingNamespace(str string) bool {
+	for _, v := range r.WatchNamespaces {
+		if v == str {
+			return true
+		}
+	}
+	return len(r.WatchNamespaces) == 0
 }
