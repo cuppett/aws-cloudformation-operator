@@ -33,11 +33,6 @@ spec:
             secretKeyRef:
               name: aws-keys
               key: AWS_ACCESS_KEY_ID
-        - name: AWS_DEFAULT_REGION
-          valueFrom:
-            secretKeyRef:
-              name: aws-keys
-              key: AWS_DEFAULT_REGION
         - name: AWS_PROFILE
           valueFrom:
             secretKeyRef:
