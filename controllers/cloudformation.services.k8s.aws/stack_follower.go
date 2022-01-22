@@ -28,6 +28,7 @@ package cloudformation_services_k8s_aws
 import (
 	"context"
 	"github.com/cuppett/aws-cloudformation-controller/apis/cloudformation.services.k8s.aws/v1alpha1"
+	"github.com/cuppett/aws-cloudformation-controller/controllers"
 	"github.com/prometheus/client_golang/prometheus"
 	"reflect"
 	"sync"
@@ -46,7 +47,7 @@ type StackFollower struct {
 	client.Client
 	ChannelHub
 	Log                  logr.Logger
-	CloudFormationHelper *CloudFormationHelper
+	CloudFormationHelper *controllers.CloudFormationHelper
 	StacksFollowing      prometheus.Gauge
 	StacksFollowed       prometheus.Counter
 	mapPollingList       sync.Map // StackID -> Kube Stack object
@@ -196,7 +197,7 @@ func (f *StackFollower) processStack(key interface{}, value interface{}) bool {
 
 	cfs, err := f.CloudFormationHelper.GetStack(context.TODO(), stack)
 	if err != nil {
-		if err == ErrStackNotFound {
+		if err == controllers.ErrStackNotFound {
 			log.Error(err, "Stack Not Found")
 			f.stopFollowing(stackId)
 		} else {

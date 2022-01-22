@@ -11,9 +11,11 @@ require (
 	github.com/go-logr/logr v0.4.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.17.0
+	github.com/openshift/api v0.0.0-20211028023115-7224b732cc14
 	github.com/prometheus/client_golang v1.11.0
 	github.com/spf13/pflag v1.0.5
 	k8s.io/api v0.22.3
+	k8s.io/apiextensions-apiserver v0.22.2 // indirect
 	k8s.io/apimachinery v0.22.3
 	k8s.io/client-go v0.22.3
 	sigs.k8s.io/controller-runtime v0.10.3

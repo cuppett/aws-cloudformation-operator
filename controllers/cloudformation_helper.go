@@ -23,7 +23,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-package cloudformation_services_k8s_aws
+package controllers
 
 import (
 	"context"
@@ -33,6 +33,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	cfTypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/cuppett/aws-cloudformation-controller/apis/cloudformation.services.k8s.aws/v1alpha1"
+	servicesk8saws "github.com/cuppett/aws-cloudformation-controller/controllers/services.k8s.aws"
 	"hash/crc32"
 	"strings"
 )
@@ -42,7 +43,11 @@ var (
 )
 
 type CloudFormationHelper struct {
-	CloudFormation *cloudformation.Client
+	*servicesk8saws.ConfigReconciler
+}
+
+func (cf *CloudFormationHelper) GetCloudFormation() *cloudformation.Client {
+	return cf.ConfigReconciler.GetCloudFormation()
 }
 
 // StackInTerminalState Identify if the follower considers the state identified as terminal.
@@ -61,7 +66,7 @@ func (cf *CloudFormationHelper) GetStack(ctx context.Context, instance *v1alpha1
 	// Must use the stack ID to get details/finalization for deleted stacks
 	name := cf.GetStackName(ctx, instance, true)
 
-	resp, err := cf.CloudFormation.DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
+	resp, err := cf.ConfigReconciler.GetCloudFormation().DescribeStacks(ctx, &cloudformation.DescribeStacksInput{
 		NextToken: nil,
 		StackName: aws.String(name),
 	})
@@ -107,7 +112,7 @@ func (cf *CloudFormationHelper) GetStackResources(ctx context.Context, stackId s
 	toReturn := make([]v1alpha1.StackResource, 0)
 
 	for {
-		resp, err := cf.CloudFormation.ListStackResources(ctx, &cloudformation.ListStackResourcesInput{
+		resp, err := cf.ConfigReconciler.GetCloudFormation().ListStackResources(ctx, &cloudformation.ListStackResourcesInput{
 			NextToken: next,
 			StackName: aws.String(stackId),
 		})

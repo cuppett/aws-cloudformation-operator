@@ -605,6 +605,54 @@ I0906 11:40:34.682856   90327 request.go:668] Waited for 1.049926354s due to cli
 2021-09-06T11:40:37.211-0400    INFO    controller-runtime.manager.controller.stack     Starting workers        {"reconciler group": "cloudformation.services.k8s.aws.cuppett.dev", "reconciler kind": "Stack", "worker count": 1}
 ```
 
+## Appendix: Cluster Configuration
+
+### Region
+
+The AWS SDK for go does have a default region search order. 
+To assist with kubernetes deployments there are a couple additional fallbacks here.
+It is also possible to define region within the cluster.
+
+### Controller Config
+
+This method of detecting/configuring the region can be used as a fallback.
+The name must be `default` and in the namespace of the pod.
+
+```yaml
+apiVersion: services.k8s.aws.cuppett.dev/v1alpha1
+kind: Config
+metadata:
+  name: default
+  namespace: aws-cloudformation-controller-system
+spec:
+  region: us-east-1
+```
+
+### OpenShift Infrastructure
+
+This method will be used if all else fails (and you are running either on OpenShift or where this type is loaded).
+This is a cluster-wide CRD and only `cluster` will be looked for.
+
+```yaml
+apiVersion: config.openshift.io/v1
+kind: Infrastructure
+metadata:
+  name: cluster
+spec:
+  cloudConfig:
+    name: ''
+  platformSpec:
+    aws: {}
+    type: AWS
+status:
+  ...
+  platform: AWS
+  platformStatus:
+    aws:
+      region: us-east-2
+    type: AWS
+```
+
 ## Appendix: Command-line arguments
 
 There are a number of parameters to the controller which are not in the default manifests, but that allow further customization of it.

@@ -26,24 +26,22 @@ SOFTWARE.
 package main
 
 import (
-	"context"
-	coreerrors "errors"
 	"flag"
 	cfv1alpha1 "github.com/cuppett/aws-cloudformation-controller/apis/cloudformation.services.k8s.aws/v1alpha1"
 	configv1alpha1 "github.com/cuppett/aws-cloudformation-controller/apis/services.k8s.aws/v1alpha1"
+	"github.com/cuppett/aws-cloudformation-controller/controllers"
 	"github.com/cuppett/aws-cloudformation-controller/controllers/cloudformation.services.k8s.aws"
 	servicesk8saws "github.com/cuppett/aws-cloudformation-controller/controllers/services.k8s.aws"
+	configv1 "github.com/openshift/api/config/v1"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"os"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
-	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	cfTypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
-	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/spf13/pflag"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
@@ -53,7 +51,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -69,6 +66,8 @@ var (
 func init() {
 
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(apiextensions.AddToScheme(scheme))
+	utilruntime.Must(configv1.Install(scheme))
 	utilruntime.Must(cfv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(configv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
@@ -169,26 +168,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		setupLog.Error(err, "error getting AWS config")
+	configReconciler := servicesk8saws.InitializeConfigReconciler(
+		mgr.GetClient(),
+		ctrl.Log.WithName("workers").WithName("Config"),
+		mgr.GetScheme(),
+		assumeRole,
+	)
+	if err = configReconciler.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Config")
 		os.Exit(1)
 	}
-	creds := cfg.Credentials
 
-	stsClient := sts.NewFromConfig(cfg)
-	setupLog.Info(assumeRole)
-	if assumeRole != "" {
-		setupLog.Info("run assume")
-		creds = stscreds.NewAssumeRoleProvider(stsClient, assumeRole)
-	}
-
-	client := cloudformation.NewFromConfig(cfg, func(o *cloudformation.Options) {
-		o.Credentials = creds
-	})
-
-	cfHelper := &cloudformation_services_k8s_aws.CloudFormationHelper{
-		CloudFormation: client,
+	cfHelper := &controllers.CloudFormationHelper{
+		ConfigReconciler: configReconciler,
 	}
 
 	channelHub := &cloudformation_services_k8s_aws.ChannelHub{
@@ -227,27 +219,21 @@ func main() {
 	metrics.Registry.MustRegister(stackFollower.StacksFollowing)
 	metrics.Registry.MustRegister(stackFollower.StacksFollowed)
 
-	output, err := stsClient.GetCallerIdentity(context.TODO(), &sts.GetCallerIdentityInput{})
-	if err != nil || output == nil {
-		setupLog.Error(coreerrors.New("AWS identity not found"), "No AWS identity discovered in config.")
-	} else {
-		setupLog.Info("Current AWS identity " + *output.Arn)
-		if err = (&cloudformation_services_k8s_aws.StackReconciler{
-			Client:               mgr.GetClient(),
-			ChannelHub:           *channelHub,
-			Log:                  ctrl.Log.WithName("controllers").WithName("Stack"),
-			Scheme:               mgr.GetScheme(),
-			WatchNamespaces:      watchNamespaces,
-			CloudFormation:       client,
-			CloudFormationHelper: cfHelper,
-			DefaultTags:          defaultTags,
-			DefaultCapabilities:  defaultCapabilities,
-			DryRun:               dryRun,
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Stack")
-			os.Exit(1)
-		}
+	if err = (&cloudformation_services_k8s_aws.StackReconciler{
+		Client:               mgr.GetClient(),
+		ChannelHub:           *channelHub,
+		Log:                  ctrl.Log.WithName("controllers").WithName("Stack"),
+		Scheme:               mgr.GetScheme(),
+		WatchNamespaces:      watchNamespaces,
+		CloudFormationHelper: cfHelper,
+		DefaultTags:          defaultTags,
+		DefaultCapabilities:  defaultCapabilities,
+		DryRun:               dryRun,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Stack")
+		os.Exit(1)
 	}
+
 	noWebHook, err := StackFlagSet.GetBool("no-webhook")
 	if err != nil {
 		setupLog.Error(err, "error parsing flag")
@@ -260,14 +246,6 @@ func main() {
 		}
 	}
 
-	if err = (&servicesk8saws.ConfigReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("workers").WithName("Config"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Config")
-		os.Exit(1)
-	}
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

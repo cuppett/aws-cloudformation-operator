@@ -29,6 +29,7 @@ import (
 	"context"
 	coreerrors "errors"
 	"github.com/cuppett/aws-cloudformation-controller/apis/cloudformation.services.k8s.aws/v1alpha1"
+	"github.com/cuppett/aws-cloudformation-controller/controllers"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -65,8 +66,7 @@ type StackReconciler struct {
 	Log                  logr.Logger
 	Scheme               *runtime.Scheme
 	WatchNamespaces      []string
-	CloudFormation       *cloudformation.Client
-	CloudFormationHelper *CloudFormationHelper
+	CloudFormationHelper *controllers.CloudFormationHelper
 	DefaultTags          map[string]string
 	DefaultCapabilities  []cfTypes.Capability
 	DryRun               bool
@@ -208,7 +208,7 @@ func (r *StackReconciler) createStack(loop *StackLoop) error {
 		input.OnFailure = cfTypes.OnFailure(loop.instance.Spec.OnFailure)
 	}
 
-	output, err := r.CloudFormation.CreateStack(loop.ctx, input)
+	output, err := r.CloudFormationHelper.GetCloudFormation().CreateStack(loop.ctx, input)
 	if err != nil {
 		return err
 	}
@@ -259,7 +259,7 @@ func (r *StackReconciler) updateStack(loop *StackLoop) error {
 		input.TemplateURL = aws.String(loop.instance.Spec.TemplateUrl)
 	}
 
-	if _, err := r.CloudFormation.UpdateStack(loop.ctx, input); err != nil {
+	if _, err := r.CloudFormationHelper.GetCloudFormation().UpdateStack(loop.ctx, input); err != nil {
 		if strings.Contains(err.Error(), "No updates are to be performed.") {
 			loop.Log.Info("Stack already updated")
 		} else if strings.Contains(err.Error(), "does not exist") {
@@ -294,7 +294,7 @@ func (r *StackReconciler) deleteStack(loop *StackLoop) error {
 		StackName: aws.String(r.CloudFormationHelper.GetStackName(loop.ctx, loop.instance, true)),
 	}
 
-	if _, err := r.CloudFormation.DeleteStack(loop.ctx, input); err != nil {
+	if _, err := r.CloudFormationHelper.GetCloudFormation().DeleteStack(loop.ctx, input); err != nil {
 		return err
 	}
 
@@ -311,7 +311,7 @@ func (r *StackReconciler) getStack(loop *StackLoop, noCache bool) (*cfTypes.Stac
 		loop.stack, err = r.CloudFormationHelper.GetStack(loop.ctx, loop.instance)
 		if err != nil {
 			if strings.Contains(err.Error(), "does not exist") {
-				return nil, ErrStackNotFound
+				return nil, controllers.ErrStackNotFound
 			}
 			return nil, err
 		}
@@ -323,7 +323,7 @@ func (r *StackReconciler) getStack(loop *StackLoop, noCache bool) (*cfTypes.Stac
 func (r *StackReconciler) stackExists(loop *StackLoop) (bool, error) {
 	stack, err := r.getStack(loop, false)
 	if err != nil {
-		if err == ErrStackNotFound {
+		if err == controllers.ErrStackNotFound {
 			return false, nil
 		}
 		return false, err
