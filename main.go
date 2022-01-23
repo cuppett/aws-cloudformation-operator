@@ -40,7 +40,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
-	cfTypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
 	"github.com/spf13/pflag"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
@@ -74,7 +73,6 @@ func init() {
 	StackFlagSet = pflag.NewFlagSet("stack", pflag.ExitOnError)
 	StackFlagSet.String("assume-role", "", "Assume AWS role when defined. Useful for stacks in another AWS account. Specify the full ARN, e.g. `arn:aws:iam::123456789:role/cloudformation-controller`")
 	StackFlagSet.StringToString("tag", map[string]string{}, "Tags to apply to all Stacks by default. Specify multiple times for multiple tags.")
-	StackFlagSet.StringSlice("capability", []string{}, "The AWS CloudFormation capability to enable")
 	StackFlagSet.Bool("dry-run", false, "If true, don't actually do anything.")
 	StackFlagSet.Bool("no-webhook", false, "If true, don't run the webhook server.")
 }
@@ -151,16 +149,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	paramStringSlice, err := StackFlagSet.GetStringSlice("capability")
-	if err != nil {
-		setupLog.Error(err, "error parsing flag")
-		os.Exit(1)
-	}
-	defaultCapabilities := make([]cfTypes.Capability, len(paramStringSlice))
-	for i := range paramStringSlice {
-		defaultCapabilities[i] = cfTypes.Capability(paramStringSlice[i])
-	}
-
 	dryRun, err := StackFlagSet.GetBool("dry-run")
 	if err != nil {
 		setupLog.Error(err, "error parsing flag")
@@ -226,7 +214,6 @@ func main() {
 		WatchNamespaces:      watchNamespaces,
 		CloudFormationHelper: cfHelper,
 		DefaultTags:          defaultTags,
-		DefaultCapabilities:  defaultCapabilities,
 		DryRun:               dryRun,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Stack")
