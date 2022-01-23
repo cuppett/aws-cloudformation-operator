@@ -458,10 +458,6 @@ Assuming no resources are to be modified by the operator directly, here is the m
 ```yaml
 Version: '2012-10-17'
 Statement:
-  - Sid: CallerIdentity
-    Effect: Allow
-    Action:
-      - sts:GetCallerIdentity
     Resource: "*"
   - Sid: CreateRead
     Effect: Allow
@@ -538,6 +534,13 @@ $ export AWS_ACCESS_KEY_ID=XXXXX
 $ export AWS_SECRET_ACCESS_KEY=XXXXX
 $ export AWS_REGION=XXXXX
 ```
+
+##### Mint Mode Fallback on OpenShift
+
+For OpenShift clusters configured in [mint mode](https://docs.openshift.com/container-platform/4.9/authentication/managing_cloud_provider_credentials/cco-mode-mint.html)
+the controller will attempt to discover credentials using the SDK, but then fallback to creating a `CredentialsRequest` with the minimal
+permissions identified from above.
+The resulting secret will be used.
 
 #### Using kustomize & make to deploy
 
@@ -697,7 +700,6 @@ These may be useful for restricting permissions, adding specific tags or in supp
 
 | Argument    | Environment variable | Default value | Description                                                                                                                                                                                                                                                                                                                              |
 |-------------|----------------------|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| assume-role |                      |               | Assume AWS role when defined. Useful for managing stacks in another AWS account from the OIDC endpoint or trust. Specify the full ARN, e.g. `arn:aws:iam::123456789:role/cloudformation-controller`                                                                                                                                      |
 | tag ...     |                      |               | Default tags which should be applied for all stacks. The format is `--tag=foo=bar --tag=wambo=baz` on the command line or with a line break when specifying as an env var. (e.g. in zsh: `AWS_TAGS="foo=bar"$'\n'"wambo=baz"`)                                                                                                           |
 | namespace   | WATCH_NAMESPACE      | (all)         | The Kubernetes namespace to watch. Can be one or more (separated by commas).                                                                                                                                                                                                                                                             |
 | dry-run     |                      |               | If true, don't actually do anything.                                                                                                                                                                                                                                                                                                     |

@@ -28,12 +28,14 @@ import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	servicesv1alpha1 "github.com/cuppett/aws-cloudformation-operator/apis/services.k8s.aws/v1alpha1"
 	"github.com/go-logr/logr"
 	configv1 "github.com/openshift/api/config/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
+	ccmv1 "github.com/openshift/cloud-credential-operator/pkg/apis/cloudcredential/v1"
+	v12 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,22 +51,32 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+const (
+	configName       string = "default"
+	credReqName      string = "aws-cloudformation-controller-keys"
+	credReqNamespace string = "openshift-cloud-credential-operator"
+	credSecretName   string = "aws-cloud-credentials"
+)
+
+var (
+	podNamespace      string = os.Getenv("POD_NAMESPACE")
+	podServiceAccount string = os.Getenv("POD_SERVICE_ACCOUNT")
+)
+
 // ConfigReconciler reconciles a Config object
 type ConfigReconciler struct {
 	client         client.Client
 	log            logr.Logger
 	scheme         *runtime.Scheme
-	assumeRole     string
 	cloudFormation *cloudformation.Client
 	cfLock         sync.Mutex
 }
 
-func InitializeConfigReconciler(client client.Client, log logr.Logger, scheme *runtime.Scheme, role string) *ConfigReconciler {
+func InitializeConfigReconciler(client client.Client, log logr.Logger, scheme *runtime.Scheme) *ConfigReconciler {
 	reconciler := &ConfigReconciler{
 		client:         client,
 		log:            log,
 		scheme:         scheme,
-		assumeRole:     role,
 		cloudFormation: nil,
 	}
 	return reconciler
@@ -93,24 +105,24 @@ func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	// Currently only watching the one default config in the running pod namespace.
+	// Currently only watching the one default config in the running pod podNamespace.
 	returnVal := ctrl.NewControllerManagedBy(mgr).
 		For(&servicesv1alpha1.Config{}).
 		WithEventFilter(predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
-				if os.Getenv("POD_NAMESPACE") == e.Object.GetNamespace() && e.Object.GetName() == "default" {
+				if podNamespace == e.Object.GetNamespace() && e.Object.GetName() == configName {
 					return true
 				}
 				return false
 			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				if os.Getenv("POD_NAMESPACE") == e.ObjectOld.GetNamespace() && e.ObjectOld.GetName() == "default" {
+				if podNamespace == e.ObjectOld.GetNamespace() && e.ObjectOld.GetName() == configName {
 					return true
 				}
 				return false
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				if os.Getenv("POD_NAMESPACE") == e.Object.GetNamespace() && e.Object.GetName() == "default" {
+				if podNamespace == e.Object.GetNamespace() && e.Object.GetName() == configName {
 					return true
 				}
 				return false
@@ -153,23 +165,111 @@ func (r *ConfigReconciler) loadConfig(ctx context.Context) *aws.Config {
 
 	r.log.Info("Region resolved", "region", cfg.Region)
 
-	stsClient := sts.NewFromConfig(cfg)
-
-	if r.assumeRole != "" {
-		r.log.Info("Injecting assume role provider for " + r.assumeRole)
-		cfg.Credentials = stscreds.NewAssumeRoleProvider(stsClient, r.assumeRole)
-		stsClient = sts.NewFromConfig(cfg)
+	// Looking for credentials
+	credentials, err := cfg.Credentials.Retrieve(ctx)
+	// If the default ways didn't give it to us and we're in OpenShift Mint Mode
+	if (err != nil || !credentials.HasKeys()) && r.isMintMode(ctx) {
+		secret := &v12.Secret{}
+		namespacedName := types.NamespacedName{
+			Namespace: podNamespace,
+			Name:      credSecretName,
+		}
+		err = r.client.Get(ctx, namespacedName, secret)
+		if err != nil {
+			r.log.Info("Failed to get Secret", "error", err)
+			r.checkCredentialRequest(ctx)
+		} else {
+			cfg.Credentials = &SecretProvider{
+				*secret,
+			}
+		}
 	}
 
-	// Log out the identity being used
+	// Log the identity being used
+	stsClient := sts.NewFromConfig(cfg)
 	output, err := stsClient.GetCallerIdentity(context.TODO(), &sts.GetCallerIdentityInput{})
 	if err != nil || output == nil {
-		r.log.Error(err, "No AWS identity discovered in config.")
+		r.log.Info("No AWS identity available in config.", "error", err)
 	} else {
 		r.log.Info("AWS identity found", "arn", *output.Arn)
 	}
 
 	return &cfg
+}
+
+//+kubebuilder:rbac:groups=cloudcredential.openshift.io,resources=credentialsrequests,verbs=get;list;watch
+
+func (r *ConfigReconciler) checkCredentialRequest(ctx context.Context) {
+	credentialRequest := &ccmv1.CredentialsRequest{}
+	namespacedName := types.NamespacedName{
+		Name:      credReqName,
+		Namespace: credReqNamespace,
+	}
+	err := r.client.Get(ctx, namespacedName, credentialRequest)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			r.log.Info("CredentialRequest does not exist")
+			r.createCredentialRequest(ctx, namespacedName)
+		} else {
+			r.log.Error(err, "Failed to get CredentialRequest")
+		}
+	}
+	r.log.Info("credential request exists, something else wrong.", "status", credentialRequest.Status)
+}
+
+//+kubebuilder:rbac:groups=cloudcredential.openshift.io,resources=credentialsrequests,verbs=create
+
+func (r *ConfigReconciler) createCredentialRequest(ctx context.Context, namespacedName types.NamespacedName) {
+
+	credentialRequest := ccmv1.CredentialsRequest{}
+	credentialRequest.Name = namespacedName.Name
+	credentialRequest.Namespace = namespacedName.Namespace
+	credentialRequest.Spec.SecretRef.Name = credSecretName
+	credentialRequest.Spec.SecretRef.Namespace = podNamespace
+	credentialRequest.Spec.ServiceAccountNames = []string{podServiceAccount}
+
+	credentialRequestProviderSpec := ccmv1.AWSProviderSpec{}
+	credentialRequestProviderSpec.StatementEntries = []ccmv1.StatementEntry{
+		{
+			Effect:   "Allow",
+			Resource: "*",
+			Action: []string{
+				"cloudformation:CreateStack",
+				"cloudformation:DescribeStackInstance",
+				"cloudformation:DescribeStackResource",
+				"cloudformation:DescribeStacks",
+				"cloudformation:ListStackResources",
+			},
+		},
+		{
+			Effect:   "Allow",
+			Resource: "*",
+			Action: []string{
+				"cloudformation:DeleteStack",
+				"cloudformation:UpdateStack",
+			},
+			PolicyCondition: ccmv1.IAMPolicyCondition{
+				"StringEquals": ccmv1.IAMPolicyConditionKeyValue{
+					"aws:ResourceTag/kubernetes.io/controlled-by": "cloudformation.services.k8s.aws.cuppett.dev/controller",
+				},
+			},
+		},
+	}
+
+	codec, err := ccmv1.NewCodec()
+	var raw *runtime.RawExtension
+	if err == nil {
+		raw, err = codec.EncodeProviderSpec(credentialRequestProviderSpec.DeepCopyObject())
+	}
+	if err == nil && raw != nil {
+		credentialRequest.Spec.ProviderSpec = raw
+		err = r.client.Create(ctx, &credentialRequest)
+	}
+
+	if err != nil || raw == nil {
+		r.log.Error(err, "Failure marshaling or creating object")
+
+	}
 }
 
 func (r *ConfigReconciler) retrieveConfig(ctx context.Context, name types.NamespacedName) (*servicesv1alpha1.Config, error) {
@@ -192,8 +292,8 @@ func (r *ConfigReconciler) retrieveConfig(ctx context.Context, name types.Namesp
 
 func (r *ConfigReconciler) getDefaultConfig(ctx context.Context) *servicesv1alpha1.Config {
 	defaultConfig, _ := r.retrieveConfig(ctx, types.NamespacedName{
-		Namespace: os.Getenv("POD_NAMESPACE"),
-		Name:      "default",
+		Namespace: podNamespace,
+		Name:      configName,
 	})
 	return defaultConfig
 }
@@ -233,6 +333,38 @@ func (r *ConfigReconciler) getInfraRegion(ctx context.Context) string {
 		}
 	}
 	return ""
+}
+
+//+kubebuilder:rbac:groups=operator.openshift.io,resources=cloudcredentials,verbs=get;list;watch
+
+func (r *ConfigReconciler) isMintMode(ctx context.Context) bool {
+	var err error
+	var gvkCc v1.GroupVersionKind
+	var gvkCr v1.GroupVersionKind
+
+	gvkCc.Kind = "CloudCredential"
+	gvkCc.Group = "operator.openshift.io"
+	gvkCc.Version = "v1"
+	gvkCr.Kind = "CredentialsRequest"
+	gvkCr.Group = "cloudcredential.openshift.io"
+	gvkCr.Version = "v1"
+
+	// Ensure both CloudCredential and CredentialsRequest are on the system, then check the mint mode on CloudCredential
+	if r.crdExists(ctx, "cloudcredentials.operator.openshift.io", gvkCc) &&
+		r.crdExists(ctx, "credentialsrequests.cloudcredential.openshift.io", gvkCr) {
+		cc := &operatorv1.CloudCredential{}
+		err = r.client.Get(ctx, types.NamespacedName{Name: "cluster"}, cc)
+		if err != nil {
+			r.log.Error(err, "Failed to get defined credential mode from OpenShift")
+			return false
+		}
+		if cc.Spec.CredentialsMode == operatorv1.CloudCredentialsModeDefault || cc.Spec.CredentialsMode == operatorv1.CloudCredentialsModeMint {
+			return true
+		} else {
+			r.log.Info("Deployment mode not mint", "mode", cc.Spec.CredentialsMode)
+		}
+	}
+	return false
 }
 
 //+kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
