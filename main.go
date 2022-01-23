@@ -32,6 +32,8 @@ import (
 	"github.com/cuppett/aws-cloudformation-controller/controllers/cloudformation.services.k8s.aws"
 	servicesk8saws "github.com/cuppett/aws-cloudformation-controller/controllers/services.k8s.aws"
 	configv1 "github.com/openshift/api/config/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
+	ccmv1 "github.com/openshift/cloud-credential-operator/pkg/apis/cloudcredential/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"os"
@@ -66,12 +68,13 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(apiextensions.AddToScheme(scheme))
 	utilruntime.Must(configv1.Install(scheme))
+	utilruntime.Must(operatorv1.Install(scheme))
+	utilruntime.Must(ccmv1.Install(scheme))
 	utilruntime.Must(cfv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(configv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 
 	StackFlagSet = pflag.NewFlagSet("stack", pflag.ExitOnError)
-	StackFlagSet.String("assume-role", "", "Assume AWS role when defined. Useful for stacks in another AWS account. Specify the full ARN, e.g. `arn:aws:iam::123456789:role/cloudformation-controller`")
 	StackFlagSet.StringToString("tag", map[string]string{}, "Tags to apply to all Stacks by default. Specify multiple times for multiple tags.")
 	StackFlagSet.Bool("dry-run", false, "If true, don't actually do anything.")
 	StackFlagSet.Bool("no-webhook", false, "If true, don't run the webhook server.")
@@ -138,11 +141,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	assumeRole, err := StackFlagSet.GetString("assume-role")
-	if err != nil {
-		setupLog.Error(err, "error parsing flag")
-		os.Exit(1)
-	}
 	defaultTags, err := StackFlagSet.GetStringToString("tag")
 	if err != nil {
 		setupLog.Error(err, "error parsing flag")
@@ -159,10 +157,19 @@ func main() {
 		mgr.GetClient(),
 		ctrl.Log.WithName("workers").WithName("Config"),
 		mgr.GetScheme(),
-		assumeRole,
 	)
 	if err = configReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Config")
+		os.Exit(1)
+	}
+
+	if err = (&servicesk8saws.SecretReconciler{
+		Client:           mgr.GetClient(),
+		Log:              ctrl.Log.WithName("controllers").WithName("Secret"),
+		Scheme:           mgr.GetScheme(),
+		ConfigReconciler: configReconciler,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Secret")
 		os.Exit(1)
 	}
 
