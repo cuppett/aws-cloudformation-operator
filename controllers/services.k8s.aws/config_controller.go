@@ -70,8 +70,6 @@ func InitializeConfigReconciler(client client.Client, log logr.Logger, scheme *r
 	return reconciler
 }
 
-//+kubebuilder:rbac:groups=config.openshift.io,resources=infrastructures,verbs=get;list;watch
-//+kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
 //+kubebuilder:rbac:groups=services.k8s.aws.cuppett.dev,resources=configs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=services.k8s.aws.cuppett.dev,resources=configs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=services.k8s.aws.cuppett.dev,resources=configs/finalizers,verbs=update
@@ -211,6 +209,8 @@ func (r *ConfigReconciler) getClusterRegion(ctx context.Context) string {
 	return r.getInfraRegion(ctx)
 }
 
+//+kubebuilder:rbac:groups=config.openshift.io,resources=infrastructures,verbs=get;list;watch
+
 func (r *ConfigReconciler) getInfraRegion(ctx context.Context) string {
 	var err error
 	var gvk v1.GroupVersionKind
@@ -234,6 +234,8 @@ func (r *ConfigReconciler) getInfraRegion(ctx context.Context) string {
 	}
 	return ""
 }
+
+//+kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
 
 func (r *ConfigReconciler) crdExists(ctx context.Context, name string, gvk v1.GroupVersionKind) bool {
 	crd := &apiextensions.CustomResourceDefinition{}
