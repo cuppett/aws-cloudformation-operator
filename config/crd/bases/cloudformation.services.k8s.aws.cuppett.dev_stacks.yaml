@@ -36,6 +36,10 @@ spec:
           spec:
             description: Defines the desired state of Stack
             properties:
+              capabilities:
+                items:
+                  type: string
+                type: array
               notificationArns:
                 items:
                   type: string

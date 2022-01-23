@@ -67,7 +67,6 @@ type StackReconciler struct {
 	WatchNamespaces      []string
 	CloudFormationHelper *CloudFormationHelper
 	DefaultTags          map[string]string
-	DefaultCapabilities  []cfTypes.Capability
 	DryRun               bool
 }
 
@@ -179,8 +178,12 @@ func (r *StackReconciler) createStack(loop *StackLoop) error {
 	stackName := r.CloudFormationHelper.GetStackName(loop.ctx, loop.instance, false)
 	loop.Log = loop.Log.WithValues("stackName", stackName)
 
+	capabilities := make([]cfTypes.Capability, len(loop.instance.Spec.Capabilities))
+	for i, x := range loop.instance.Spec.Capabilities {
+		capabilities[i] = cfTypes.Capability(x)
+	}
 	input := &cloudformation.CreateStackInput{
-		Capabilities: r.DefaultCapabilities,
+		Capabilities: capabilities,
 		StackName:    aws.String(stackName),
 		Parameters:   r.stackParameters(loop),
 		Tags:         stackTags,
@@ -234,8 +237,12 @@ func (r *StackReconciler) updateStack(loop *StackLoop) error {
 	stackName := r.CloudFormationHelper.GetStackName(loop.ctx, loop.instance, true)
 	loop.Log = loop.Log.WithValues("stackName", stackName)
 
+	capabilities := make([]cfTypes.Capability, len(loop.instance.Spec.Capabilities))
+	for i, x := range loop.instance.Spec.Capabilities {
+		capabilities[i] = cfTypes.Capability(x)
+	}
 	input := &cloudformation.UpdateStackInput{
-		Capabilities: r.DefaultCapabilities,
+		Capabilities: capabilities,
 		StackName:    aws.String(stackName),
 		Parameters:   r.stackParameters(loop),
 		Tags:         stackTags,

@@ -37,6 +37,9 @@ import (
 type StackSpec struct {
 	// +kubebuilder:validation:Optional
 	// +optional
+	Capabilities []string `json:"capabilities,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +optional
 	NotificationArns []string `json:"notificationArns,omitempty"`
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Enum=DO_NOTHING;ROLLBACK;DELETE

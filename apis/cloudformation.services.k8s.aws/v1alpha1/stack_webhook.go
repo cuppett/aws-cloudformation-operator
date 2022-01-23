@@ -51,6 +51,8 @@ var (
 	ErrTooManyARNs        = coreerrors.New("You cannot specify more than 5 NotificationARNs.")
 	ErrCannotRenameStacks = coreerrors.New("You cannot change the name of a stack after creation.")
 	ErrStackNameTooLong   = coreerrors.New("Stack names limited to 64 characters.")
+	ErrBadCapability      = coreerrors.New("Invalid capability specified.")
+	allowedCapabilities   = []string{"CAPABILITY_IAM", "CAPABILITY_NAMED_IAM", "CAPABILITY_AUTO_EXPAND"}
 	ErrStackNameFormat    = coreerrors.New("Stack name can include letters (A-Z and a-z), numbers (0-9), and dashes (-). Must start with a letter.")
 	nameRegex, _          = regexp.Compile("^[a-zA-Z][a-zA-Z0-9\\-]*$")
 )
@@ -92,6 +94,20 @@ func (r *Stack) ValidateCreate() error {
 
 	if r.Spec.StackName != "" && !nameRegex.Match([]byte(r.Spec.StackName)) {
 		return ErrStackNameFormat
+	}
+
+	// Ensuring the capabilities input are within the known/allowed set
+	for _, x := range r.Spec.Capabilities {
+		goodCapability := false
+		for _, y := range allowedCapabilities {
+			if x == y {
+				goodCapability = true
+				break
+			}
+		}
+		if !goodCapability {
+			return ErrBadCapability
+		}
 	}
 
 	return nil

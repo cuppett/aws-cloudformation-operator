@@ -357,12 +357,33 @@ spec:
   - 'arn:aws:sns:us-east-2:641875867446:alert-admin'
   - 'arn:aws:sns:us-east-2:641875867446:lambda-processor'
 ```
-
 > NOTE: Found an issue with the Go SDK, following up here: https://github.com/aws/aws-sdk-go-v2/issues/1423
 > 
 > Workaround (to remove on Update):
 > 1. Save Stack resource without NotificationARNs (or empty YAML)
 > 2. Remove manually directly in AWS after successful save/update
+
+
+### Capabilities
+
+CloudFormation stacks have an ability to render based on known macros and create additional IAM principals.
+To ensure this is desired/permitted when creating or updating stacks, it requires specifying the corresponding capability.
+You indicate this per-stack by providing one or more of the expected capabilities and indicating this is intended.
+The example below shows all the possible capabilities and those permitted by the controller. 
+Please refer to the documentation for the descriptions and when to use each.
+
+```yaml
+apiVersion: cloudformation.services.k8s.aws.cuppett.dev/v1alpha1
+kind: Stack
+metadata:
+  name: my-stack
+spec:
+  capabilities: 
+  - CAPABILITY_IAM
+  - CAPABILITY_NAMED_IAM
+  - CAPABILITY_AUTO_EXPAND
+```
+
 
 ### Create options
 
@@ -661,7 +682,6 @@ These may be useful for restricting permissions, adding specific tags or in supp
 | Argument    | Environment variable | Default value | Description                                                                                                                                                                                                                                                                                                                              |
 |-------------|----------------------|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | assume-role |                      |               | Assume AWS role when defined. Useful for managing stacks in another AWS account from the OIDC endpoint or trust. Specify the full ARN, e.g. `arn:aws:iam::123456789:role/cloudformation-controller`                                                                                                                                      |
-| capability  |                      |               | Enable specified capabilities for all stacks managed by the controller instance. Current parameter can be used multiple times. For example: `--capability CAPABILITY_NAMED_IAM --capability CAPABILITY_IAM`. Or with a line break when specifying as an environment variable: `AWS_CAPABILITIES=CAPABILITY_IAM$'\n'CAPABILITY_NAMED_IAM` |
 | tag ...     |                      |               | Default tags which should be applied for all stacks. The format is `--tag=foo=bar --tag=wambo=baz` on the command line or with a line break when specifying as an env var. (e.g. in zsh: `AWS_TAGS="foo=bar"$'\n'"wambo=baz"`)                                                                                                           |
 | namespace   | WATCH_NAMESPACE      | (all)         | The Kubernetes namespace to watch. Can be one or more (separated by commas).                                                                                                                                                                                                                                                             |
 | dry-run     |                      |               | If true, don't actually do anything.                                                                                                                                                                                                                                                                                                     |
