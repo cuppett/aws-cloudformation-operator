@@ -27,11 +27,11 @@ package main
 
 import (
 	"flag"
-	cfv1alpha1 "github.com/cuppett/aws-cloudformation-controller/apis/cloudformation.services.k8s.aws/v1alpha1"
-	configv1alpha1 "github.com/cuppett/aws-cloudformation-controller/apis/services.k8s.aws/v1alpha1"
-	"github.com/cuppett/aws-cloudformation-controller/controllers"
-	"github.com/cuppett/aws-cloudformation-controller/controllers/cloudformation.services.k8s.aws"
-	servicesk8saws "github.com/cuppett/aws-cloudformation-controller/controllers/services.k8s.aws"
+	cfv1alpha1 "github.com/cuppett/aws-cloudformation-operator/apis/cloudformation.services.k8s.aws/v1alpha1"
+	configv1alpha1 "github.com/cuppett/aws-cloudformation-operator/apis/services.k8s.aws/v1alpha1"
+	"github.com/cuppett/aws-cloudformation-operator/controllers"
+	"github.com/cuppett/aws-cloudformation-operator/controllers/cloudformation.services.k8s.aws"
+	servicesk8saws "github.com/cuppett/aws-cloudformation-operator/controllers/services.k8s.aws"
 	configv1 "github.com/openshift/api/config/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"

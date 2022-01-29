@@ -2,25 +2,27 @@ apiVersion: v1
 kind: Namespace
 metadata:
   labels:
-    control-plane: manager
+    control-plane: controller-manager
   name: system
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: manager
+  name: controller-manager
   namespace: system
   labels:
-    control-plane: manager
+    control-plane: controller-manager
 spec:
   selector:
     matchLabels:
-      control-plane: manager
+      control-plane: controller-manager
   replicas: 1
   template:
     metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
       labels:
-        control-plane: manager
+        control-plane: controller-manager
     spec:
       securityContext:
         runAsNonRoot: true
@@ -70,7 +72,7 @@ spec:
         args:
         - --leader-elect
         image: controller:latest
-        name: manager
+        name: controller
         securityContext:
           allowPrivilegeEscalation: false
         livenessProbe:
@@ -85,9 +87,11 @@ spec:
             port: 8081
           initialDelaySeconds: 5
           periodSeconds: 10
+        # TODO(user): Configure the resources accordingly based on the project requirements.
+        # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
         resources:
           requests:
             cpu: 5m
             memory: 100Mi
-      serviceAccountName: manager
+      serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10

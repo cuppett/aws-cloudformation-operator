@@ -1,4 +1,4 @@
-module github.com/cuppett/aws-cloudformation-controller
+module github.com/cuppett/aws-cloudformation-operator
 
 go 1.16
 

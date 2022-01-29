@@ -32,8 +32,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	cfTypes "github.com/aws/aws-sdk-go-v2/service/cloudformation/types"
-	"github.com/cuppett/aws-cloudformation-controller/apis/cloudformation.services.k8s.aws/v1alpha1"
-	servicesk8saws "github.com/cuppett/aws-cloudformation-controller/controllers/services.k8s.aws"
+	"github.com/cuppett/aws-cloudformation-operator/apis/cloudformation.services.k8s.aws/v1alpha1"
+	servicesk8saws "github.com/cuppett/aws-cloudformation-operator/controllers/services.k8s.aws"
 	"hash/crc32"
 	"strings"
 )
