@@ -27,7 +27,7 @@ package cloudformation_services_k8s_aws
 
 import (
 	"context"
-	"github.com/cuppett/aws-cloudformation-controller/apis/cloudformation.services.k8s.aws/v1alpha1"
+	"github.com/cuppett/aws-cloudformation-operator/apis/cloudformation.services.k8s.aws/v1alpha1"
 	"github.com/prometheus/client_golang/prometheus"
 	"reflect"
 	"sync"

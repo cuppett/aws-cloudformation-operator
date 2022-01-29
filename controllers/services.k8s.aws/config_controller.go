@@ -30,7 +30,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	servicesv1alpha1 "github.com/cuppett/aws-cloudformation-controller/apis/services.k8s.aws/v1alpha1"
+	servicesv1alpha1 "github.com/cuppett/aws-cloudformation-operator/apis/services.k8s.aws/v1alpha1"
 	"github.com/go-logr/logr"
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
