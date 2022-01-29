@@ -29,7 +29,6 @@ import (
 	"flag"
 	cfv1alpha1 "github.com/cuppett/aws-cloudformation-operator/apis/cloudformation.services.k8s.aws/v1alpha1"
 	configv1alpha1 "github.com/cuppett/aws-cloudformation-operator/apis/services.k8s.aws/v1alpha1"
-	"github.com/cuppett/aws-cloudformation-operator/controllers"
 	"github.com/cuppett/aws-cloudformation-operator/controllers/cloudformation.services.k8s.aws"
 	servicesk8saws "github.com/cuppett/aws-cloudformation-operator/controllers/services.k8s.aws"
 	configv1 "github.com/openshift/api/config/v1"
@@ -179,7 +178,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfHelper := &controllers.CloudFormationHelper{
+	cfHelper := &cloudformation_services_k8s_aws.CloudFormationHelper{
 		ConfigReconciler: configReconciler,
 	}
 

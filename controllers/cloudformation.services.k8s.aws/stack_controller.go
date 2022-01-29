@@ -29,7 +29,6 @@ import (
 	"context"
 	coreerrors "errors"
 	"github.com/cuppett/aws-cloudformation-operator/apis/cloudformation.services.k8s.aws/v1alpha1"
-	"github.com/cuppett/aws-cloudformation-operator/controllers"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -66,7 +65,7 @@ type StackReconciler struct {
 	Log                  logr.Logger
 	Scheme               *runtime.Scheme
 	WatchNamespaces      []string
-	CloudFormationHelper *controllers.CloudFormationHelper
+	CloudFormationHelper *CloudFormationHelper
 	DefaultTags          map[string]string
 	DefaultCapabilities  []cfTypes.Capability
 	DryRun               bool
@@ -311,7 +310,7 @@ func (r *StackReconciler) getStack(loop *StackLoop, noCache bool) (*cfTypes.Stac
 		loop.stack, err = r.CloudFormationHelper.GetStack(loop.ctx, loop.instance)
 		if err != nil {
 			if strings.Contains(err.Error(), "does not exist") {
-				return nil, controllers.ErrStackNotFound
+				return nil, ErrStackNotFound
 			}
 			return nil, err
 		}
@@ -323,7 +322,7 @@ func (r *StackReconciler) getStack(loop *StackLoop, noCache bool) (*cfTypes.Stac
 func (r *StackReconciler) stackExists(loop *StackLoop) (bool, error) {
 	stack, err := r.getStack(loop, false)
 	if err != nil {
-		if err == controllers.ErrStackNotFound {
+		if err == ErrStackNotFound {
 			return false, nil
 		}
 		return false, err
