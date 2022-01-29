@@ -1,0 +1,355 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: |-
+      [
+        {
+          "apiVersion": "cloudformation.services.k8s.aws.cuppett.dev/v1alpha1",
+          "kind": "Stack",
+          "metadata": {
+            "name": "my-bucket"
+          },
+          "spec": {
+            "parameters": {
+              "VersioningConfiguration": "Enabled"
+            },
+            "tags": {
+              "foo": "dataFromStack"
+            },
+            "template": "---\nAWSTemplateFormatVersion: '2010-09-09'\n\nParameters:\n  VersioningConfiguration:\n    Type: String\n    Default: Suspended\n    AllowedValues:\n    - Enabled\n    - Suspended\n\nResources:\n  S3Bucket:\n    Type: AWS::S3::Bucket\n    Properties:\n      VersioningConfiguration:\n        Status:\n          Ref: VersioningConfiguration\n\nOutputs:\n  BucketName:\n    Value: !Ref 'S3Bucket'\n    Description: Name of the sample Amazon S3 bucket.\n"
+          }
+        },
+        {
+          "apiVersion": "cloudformation.services.k8s.aws.cuppett.dev/v1alpha1",
+          "kind": "Stack",
+          "metadata": {
+            "name": "my-cdn"
+          },
+          "spec": {
+            "template": "---\nAWSTemplateFormatVersion: 2010-09-09\nDescription: 'Content distribution template for AWS public zones (S3 bucket, CloudFront distribution, etc.)'\nParameters:\n  ResourceSuffix:\n    Description: \u003e-\n      (Optional) A LOWER CASE suffix for any resources created by this region script - this\n      allows multiple sets of resources to be in one region.\n    Type: String\n    MinLength: '0'\n    MaxLength: '255'\n    AllowedPattern: '[_a-z0-9-]*'\n    Default: ''\n    ConstraintDescription: contain only lower case alphanumeric characters.\n  DnsZone:\n    Description: \u003e-\n      (Optional) Amazon Route53 ZONE Name. This is the zone where a DNS record will be\n      created for the web app. The name should NOT end with a period.\n    Type: String\n    Default: ''\n  AcmCertificateArn:\n    Description: \u003e-\n      (Optional) Amazon Certificate Manager ARN (us-east-1) used by CloudFront to protect this distribution\n    Type: String\n    Default: ''\nConditions:\n  HasResourceSuffix: !Not\n  - !Equals\n    - !Ref ResourceSuffix\n    - ''\n  HasDnsZone: !Not\n  - !Equals\n    - !Ref DnsZone\n    - ''\n  HasCert: !Not\n  - !Equals\n    - !Ref AcmCertificateArn\n    - ''\nResources:\n  ContentBucket:\n    Type: 'AWS::S3::Bucket'\n    Properties:\n      BucketEncryption:\n        ServerSideEncryptionConfiguration:\n        - ServerSideEncryptionByDefault:\n            SSEAlgorithm: AES256\n      BucketName: !Join\n      - '-'\n      - - cdn\n        - !Ref 'AWS::Region'\n        - !Ref 'AWS::AccountId'\n        - !If\n          - HasResourceSuffix\n          - !Ref ResourceSuffix\n          - !Ref 'AWS::NoValue'\n      LifecycleConfiguration:\n        Rules:\n        - Status: Enabled\n          AbortIncompleteMultipartUpload:\n            DaysAfterInitiation: 7\n  CloudFrontOriginAccessIdentity:\n    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity\n    Properties:\n      CloudFrontOriginAccessIdentityConfig:\n        Comment: Identity for CDN\n  ContentBucketPolicy:\n    Type: 'AWS::S3::BucketPolicy'\n    Properties:\n      Bucket: !Ref ContentBucket\n      PolicyDocument:\n        Version: 2012-10-17\n        Id: BucketAccessPolicy\n        Statement:\n        - Sid: AllowCloudFrontAccess\n          Effect: Allow\n          Principal:\n            CanonicalUser: !GetAtt\n            - CloudFrontOriginAccessIdentity\n            - S3CanonicalUserId\n          Action: 's3:GetObject'\n          Resource:\n          - !Join\n            - ''\n            - - 'arn:aws:s3:::'\n              - !Ref ContentBucket\n              - /*\n  ContentCachePolicy:\n    Type: AWS::CloudFront::CachePolicy\n    Properties:\n      CachePolicyConfig:\n        Comment: Default caching policy\n        Name: !Join\n        - '-'\n        - - 'cdn-master'\n          - !Ref 'AWS::StackName'\n        DefaultTTL: 86400\n        MinTTL: 300\n        MaxTTL: 86400\n        ParametersInCacheKeyAndForwardedToOrigin:\n          EnableAcceptEncodingBrotli: true\n          EnableAcceptEncodingGzip: true\n          CookiesConfig:\n            CookieBehavior: none\n          HeadersConfig:\n            HeaderBehavior: none\n          QueryStringsConfig:\n            QueryStringBehavior: none\n  ContentDistribution:\n    Type: 'AWS::CloudFront::Distribution'\n    Properties:\n      DistributionConfig:\n        Aliases:\n        - !If\n          - HasDnsZone\n          - !Join\n            - ''\n            - - cdn\n              - !If\n                - HasResourceSuffix\n                - !Join\n                  - ''\n                  - - '-'\n                    - !Ref ResourceSuffix\n                - !Ref 'AWS::NoValue'\n              - .\n              - !Ref DnsZone\n          - !Ref 'AWS::NoValue'\n        Origins:\n        - DomainName: !GetAtt\n          - ContentBucket\n          - DomainName\n          Id: !Join\n          - '-'\n          - - s3\n            - !Ref ContentBucket\n          S3OriginConfig:\n            OriginAccessIdentity: !Join\n            - '/'\n            - - 'origin-access-identity'\n              - 'cloudfront'\n              - !Ref CloudFrontOriginAccessIdentity\n        Enabled: 'true'\n        Comment: S3 bucket content\n        DefaultCacheBehavior:\n          AllowedMethods:\n          - GET\n          - HEAD\n          CachePolicyId: !Ref ContentCachePolicy\n          Compress: true\n          TargetOriginId: !Join\n          - '-'\n          - - s3\n            - !Ref ContentBucket\n          ViewerProtocolPolicy: redirect-to-https\n        PriceClass: PriceClass_100\n        HttpVersion: http2\n        ViewerCertificate:\n          SslSupportMethod: !If\n          - HasCert\n          - sni-only\n          - !Ref 'AWS::NoValue'\n          MinimumProtocolVersion: TLSv1.2_2019\n          AcmCertificateArn: !If\n          - HasCert\n          - AcmCertificateArn\n          - !Ref 'AWS::NoValue'\n          CloudFrontDefaultCertificate: !If\n          - HasCert\n          - false\n          - true\n  CdnRecordset:\n    Type: 'AWS::Route53::RecordSet'\n    Condition: HasDnsZone\n    Properties:\n      HostedZoneName: !Join\n      - ''\n      - - !Ref DnsZone\n        - .\n      Name: !Join\n      - ''\n      - - cdn\n        - !If\n          - HasResourceSuffix\n          - !Join\n            - ''\n            - - '-'\n              - !Ref ResourceSuffix\n          - !Ref 'AWS::NoValue'\n        - .\n        - !Ref DnsZone\n        - .\n      Type: A\n      AliasTarget:\n        HostedZoneId: Z2FDTNDATAQYW2\n        DNSName: !GetAtt\n        - ContentDistribution\n        - DomainName\nOutputs:\n  ContentBucket:\n    Description: Content S3 bucket name\n    Value: !Ref ContentBucket\n    Export:\n      Name: !Join\n      - '-'\n      - - !Ref 'AWS::StackName'\n        - ContentBucket\n  CdnUrl:\n    Description: The base CDN URL where content from the bucket will be accessible\n    Value: !If\n    - HasDnsZone\n    - !Join\n      - ''\n      - - 'https://'\n        - !Ref CdnRecordset\n        - /\n    - !Join\n      - ''\n      - - 'https://'\n        - !GetAtt ContentDistribution.DomainName\n        - /\n    Export:\n      Name: !Join\n      - '-'\n      - - !Ref 'AWS::StackName'\n        - CdnUrl\n"
+          }
+        },
+        {
+          "apiVersion": "cloudformation.services.k8s.aws.cuppett.dev/v1alpha1",
+          "kind": "Stack",
+          "metadata": {
+            "name": "my-queue"
+          },
+          "spec": {
+            "template": "---\nAWSTemplateFormatVersion: \"2010-09-09\"\nResources:\n  MySourceQueue:\n    Type: AWS::SQS::Queue\n    Properties:\n      RedrivePolicy:\n        deadLetterTargetArn:\n          Fn::GetAtt:\n          - \"MyDeadLetterQueue\"\n          - \"Arn\"\n        maxReceiveCount: 5\n  MyDeadLetterQueue:\n    Type: AWS::SQS::Queue\nOutputs:\n  SourceQueueURL:\n    Description: \"URL of source queue\"\n    Value:\n      Ref: \"MySourceQueue\"\n  SourceQueueARN:\n    Description: \"ARN of source queue\"\n    Value:\n      Fn::GetAtt:\n      - \"MySourceQueue\"\n      - \"Arn\"\n  DeadLetterQueueURL:\n    Description: \"URL of dead-letter queue\"\n    Value:\n      Ref: \"MyDeadLetterQueue\"\n  DeadLetterQueueARN:\n    Description: \"ARN of dead-letter queue\"\n    Value:\n      Fn::GetAtt:\n      - \"MyDeadLetterQueue\"\n      - \"Arn\"\n"
+          }
+        },
+        {
+          "apiVersion": "services.k8s.aws.cuppett.dev/v1alpha1",
+          "kind": "Config",
+          "metadata": {
+            "name": "default"
+          },
+          "spec": {
+            "region": "us-east-2"
+          }
+        }
+      ]
+    capabilities: Basic Install
+    operators.operatorframework.io/builder: operator-sdk-v1.15.0+git
+    operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
+  name: aws-cloudformation-operator.v0.0.1
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: Config is the Schema for the configs API
+      displayName: Config
+      kind: Config
+      name: configs.services.k8s.aws.cuppett.dev
+      version: v1alpha1
+    - description: Stack is the Schema for the stacks API
+      displayName: Stack
+      kind: Stack
+      name: stacks.cloudformation.services.k8s.aws.cuppett.dev
+      version: v1alpha1
+  description: Manage the creation and update of AWS resources via AWS CloudFormation
+  displayName: AWS CloudFormation Operator
+  icon:
+  - base64data: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB3aWR0aD0iODBweCIgaGVpZ2h0PSI4MHB4IiB2aWV3Qm94PSIwIDAgODAgODAiIHZlcnNpb249IjEuMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayI+CiAgICA8IS0tIEdlbmVyYXRvcjogU2tldGNoIDY0ICg5MzUzNykgLSBodHRwczovL3NrZXRjaC5jb20gLS0+CiAgICA8dGl0bGU+SWNvbi1BcmNoaXRlY3R1cmUvNjQvQXJjaF9BV1MtQ2xvdWRGb3JtYXRpb25fNjQ8L3RpdGxlPgogICAgPGRlc2M+Q3JlYXRlZCB3aXRoIFNrZXRjaC48L2Rlc2M+CiAgICA8ZGVmcz4KICAgICAgICA8bGluZWFyR3JhZGllbnQgeDE9IjAlIiB5MT0iMTAwJSIgeDI9IjEwMCUiIHkyPSIwJSIgaWQ9ImxpbmVhckdyYWRpZW50LTEiPgogICAgICAgICAgICA8c3RvcCBzdG9wLWNvbG9yPSIjQjAwODREIiBvZmZzZXQ9IjAlIj48L3N0b3A+CiAgICAgICAgICAgIDxzdG9wIHN0b3AtY29sb3I9IiNGRjRGOEIiIG9mZnNldD0iMTAwJSI+PC9zdG9wPgogICAgICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgICA8L2RlZnM+CiAgICA8ZyBpZD0iSWNvbi1BcmNoaXRlY3R1cmUvNjQvQXJjaF9BV1MtQ2xvdWRGb3JtYXRpb25fNjQiIHN0cm9rZT0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIxIiBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPgogICAgICAgIDxnIGlkPSJJY29uLUFyY2hpdGVjdHVyZS1CRy82NC9NYW5hZ2VtZW50LUdvdmVybmFuY2UiIGZpbGw9InVybCgjbGluZWFyR3JhZGllbnQtMSkiPgogICAgICAgICAgICA8cmVjdCBpZD0iUmVjdGFuZ2xlIiB4PSIwIiB5PSIwIiB3aWR0aD0iODAiIGhlaWdodD0iODAiPjwvcmVjdD4KICAgICAgICA8L2c+CiAgICAgICAgPHBhdGggZD0iTTUzLDM5Ljk2MzIwMzkgTDU4LDM5Ljk2MzIwMzkgTDU4LDM3Ljk2MDEzNzUgTDUzLDM3Ljk2MDEzNzUgTDUzLDM5Ljk2MzIwMzkgWiBNMjgsNTEuOTgxNjAxOSBMMzMsNTEuOTgxNjAxOSBMMzMsNDkuOTc4NTM1NiBMMjgsNDkuOTc4NTM1NiBMMjgsNTEuOTgxNjAxOSBaIE0xOCw1MS45ODE2MDE5IEwyNSw1MS45ODE2MDE5IEwyNSw0OS45Nzg1MzU2IEwxOCw0OS45Nzg1MzU2IEwxOCw1MS45ODE2MDE5IFogTTE4LDQ1Ljk3MjQwMjkgTDMwLDQ1Ljk3MjQwMjkgTDMwLDQzLjk2OTMzNjYgTDE4LDQzLjk2OTMzNjYgTDE4LDQ1Ljk3MjQwMjkgWiBNMTgsMzMuOTU0MDA0OCBMMjcsMzMuOTU0MDA0OCBMMjcsMzEuOTUwOTM4NSBMMTgsMzEuOTUwOTM4NSBMMTgsMzMuOTU0MDA0OCBaIE0xOCwzOS45NjMyMDM5IEw1MSwzOS45NjMyMDM5IEw1MSwzNy45NjAxMzc1IEwxOCwzNy45NjAxMzc1IEwxOCwzOS45NjMyMDM5IFogTTM3LDYxLjk5NjkzMzcgTDE0LDYxLjk5NjkzMzcgTDE0LDI3Ljk0NDgwNTggTDM3LDI3Ljk0NDgwNTggTDM3LDM1Ljk1NzA3MTIgTDM5LDM1Ljk1NzA3MTIgTDM5LDI2Ljk0MzI3MjYgQzM5LDI2LjM5MDQyNjMgMzguNTUyLDI1Ljk0MTczOTUgMzgsMjUuOTQxNzM5NSBMMTMsMjUuOTQxNzM5NSBDMTIuNDQ3LDI1Ljk0MTczOTUgMTIsMjYuMzkwNDI2MyAxMiwyNi45NDMyNzI2IEwxMiw2Mi45OTg0NjY4IEMxMiw2My41NTEzMTMxIDEyLjQ0Nyw2NCAxMyw2NCBMMzgsNjQgQzM4LjU1Miw2NCAzOSw2My41NTEzMTMxIDM5LDYyLjk5ODQ2NjggTDM5LDQyLjk2NzgwMzQgTDM3LDQyLjk2NzgwMzQgTDM3LDYxLjk5NjkzMzcgWiBNNjgsMzYuOTU4NjA0NCBDNjgsNDMuNDMwNTExNyA2Mi4xNzMsNDUuNjgxOTU4MyA1OS4wOTIsNDUuOTY4Mzk2OCBMNDMsNDUuOTcyNDAyOSBMNDMsNDMuOTY5MzM2NiBMNTksNDMuOTY5MzM2NiBDNTkuMTk1LDQzLjk0NjMwMTMgNjYsNDMuMjEyMTc3NSA2NiwzNi45NTg2MDQ0IEM2NiwzMS4yNjM4ODY3IDYwLjg2MywzMC4xMDgxMTc1IDU5LjgzNCwyOS45MzM4NTA3IEM1OS4zMjEsMjkuODQ2NzE3MyA1OC45NiwyOS4zODIwMDU5IDU5LjAwNCwyOC44NjMyMTE3IEM1OS4wMDUsMjguODQ0MTgyNiA1OS4wMDcsMjguODI2MTU1IDU5LjAwOSwyOC44MDgxMjc0IEM1OC45NTQsMjUuNTkwMjAxMyA1Ni45ODEsMjQuNTg0NjYyIDU2LjEyNiwyNC4zMDAyMjY2IEM1NC41MywyMy43Njk0MTQgNTIuNzUxLDI0LjI3NzE5MTMgNTEuODEsMjUuNTM5MTIzMSBDNTEuNTkxLDI1LjgzNTU3NjkgNTEuMjI5LDI1Ljk4NjgwODUgNTAuODYxLDI1LjkzMDcyMjYgQzUwLjQ5NywyNS44NzU2MzgzIDUwLjE5MiwyNS42MjUyNTUgNTAuMDY4LDI1LjI3NjcyMTQgQzQ5LjQ0NywyMy41MzYwNTY4IDQ4LjU0NiwyMi40MDgzMzA0IDQ3LjI5MywyMS4xNTM0MDk0IEM0NC4xNTksMTguMDM4NjQxMiAzOS45MDUsMTcuMTc4MzI0MiAzNS45MjUsMTguODUyODg3NyBDMzMuODM3LDE5LjczMzIzNTMgMzIuMDEyLDIxLjcyODI4OTQgMzAuOTIyLDI0LjMyNzI2OCBMMjkuMDc4LDIzLjU1MDA3ODIgQzMwLjM3LDIwLjQ3NDM2OTkgMzIuNTg0LDE4LjA4ODcxNzkgMzUuMTUsMTcuMDA3MDYyIEMzOS45MDUsMTUuMDA0OTk3MiA0NC45NzEsMTYuMDI1NTU5NSA0OC43MDQsMTkuNzM0MjM2OSBDNDkuNzc0LDIwLjgwNjg3ODkgNTAuNjYsMjEuODUxNDc4IDUxLjM1LDIzLjIwMzU0NzggQzUyLjg0MywyMi4wOTc4NTUxIDU0Ljg1NywyMS43NjczNDkyIDU2Ljc1NywyMi4zOTkzMTY2IEM1OS4xODksMjMuMjA4NTU1NCA2MC43MjcsMjUuMzIwNzg4OSA2MC45NzUsMjguMTI5MDg3OSBDNjQuMzgxLDI4Ljk4ODQwMzQgNjgsMzEuNzExNTcyMSA2OCwzNi45NTg2MDQ0IEw2OCwzNi45NTg2MDQ0IFoiIGlkPSJBV1MtQ2xvdWRGb3JtYXRpb25fSWNvbl82NF9TcXVpZCIgZmlsbD0iI0ZGRkZGRiI+PC9wYXRoPgogICAgPC9nPgo8L3N2Zz4=
+    mediatype: image/svg+xml
+  install:
+    spec:
+      clusterPermissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - '*'
+          resources:
+          - secrets
+          verbs:
+          - list
+          - watch
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - cloudcredential.openshift.io
+          resources:
+          - credentialsrequests
+          verbs:
+          - create
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - cloudformation.services.k8s.aws.cuppett.dev
+          resources:
+          - stacks
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - cloudformation.services.k8s.aws.cuppett.dev
+          resources:
+          - stacks/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - cloudformation.services.k8s.aws.cuppett.dev
+          resources:
+          - stacks/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - config.openshift.io
+          resources:
+          - infrastructures
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - operator.openshift.io
+          resources:
+          - cloudcredentials
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - services.k8s.aws.cuppett.dev
+          resources:
+          - configs
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - services.k8s.aws.cuppett.dev
+          resources:
+          - configs/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - services.k8s.aws.cuppett.dev
+          resources:
+          - configs/status
+          verbs:
+          - get
+          - patch
+          - update
+        serviceAccountName: aws-cloudformation-operator-controller-manager
+      deployments:
+      - name: aws-cloudformation-operator-controller-manager
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              control-plane: controller-manager
+          strategy: {}
+          template:
+            metadata:
+              annotations:
+                kubectl.kubernetes.io/default-container: manager
+              labels:
+                control-plane: controller-manager
+            spec:
+              containers:
+              - args:
+                - --health-probe-bind-address=:8081
+                - --metrics-bind-address=127.0.0.1:8080
+                - --leader-elect
+                command:
+                - /manager
+                env:
+                - name: POD_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                - name: POD_SERVICE_ACCOUNT
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: spec.serviceAccountName
+                - name: WATCH_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['olm.targetNamespaces']
+                image: controller:latest
+                livenessProbe:
+                  httpGet:
+                    path: /healthz
+                    port: 8081
+                  initialDelaySeconds: 15
+                  periodSeconds: 20
+                name: controller
+                ports:
+                - containerPort: 9443
+                  name: webhook-server
+                  protocol: TCP
+                readinessProbe:
+                  httpGet:
+                    path: /readyz
+                    port: 8081
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+                resources:
+                  requests:
+                    cpu: 5m
+                    memory: 100Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+              - args:
+                - --secure-listen-address=0.0.0.0:8443
+                - --upstream=http://127.0.0.1:8080/
+                - --logtostderr=true
+                - --v=10
+                image: quay.io/cuppett/kube-rbac-proxy:v0.11.0
+                name: kube-rbac-proxy
+                ports:
+                - containerPort: 8443
+                  name: https
+                  protocol: TCP
+                resources: {}
+              securityContext:
+                runAsNonRoot: true
+              serviceAccountName: aws-cloudformation-operator-controller-manager
+              terminationGracePeriodSeconds: 10
+      permissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          verbs:
+          - create
+          - patch
+        serviceAccountName: aws-cloudformation-operator-controller-manager
+    strategy: deployment
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - AWS
+  - CloudFormation
+  links:
+  - name: AWS CloudFormation Operator
+    url: https://github.com/cuppett/aws-cloudformation-operator
+  - name: AWS CloudFormation
+    url: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/Welcome.html
+  maintainers:
+  - email: steve@cuppett.com
+    name: Stephen Cuppett
+  - email: scuppett@redhat.com
+    name: Stephen Cuppett
+  maturity: alpha
+  provider:
+    name: Stephen Cuppett
+    url: https://github.com/cuppett
+  version: 0.0.1
+  webhookdefinitions:
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    conversionCRDs:
+    - stacks.cloudformation.services.k8s.aws.cuppett.dev
+    deploymentName: aws-cloudformation-operator-controller-manager
+    generateName: cstacks.kb.io
+    sideEffects: None
+    targetPort: 9443
+    type: ConversionWebhook
+    webhookPath: /convert
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: aws-cloudformation-operator-controller-manager
+    failurePolicy: Fail
+    generateName: vstack.kb.io
+    rules:
+    - apiGroups:
+      - cloudformation.services.k8s.aws.cuppett.dev
+      apiVersions:
+      - v1alpha1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - stacks
+    sideEffects: None
+    targetPort: 9443
+    type: ValidatingAdmissionWebhook
+    webhookPath: /validate-cloudformation-services-k8s-aws-cuppett-dev-v1alpha1-stack
