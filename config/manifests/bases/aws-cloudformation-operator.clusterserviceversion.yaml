@@ -4,6 +4,7 @@ metadata:
   annotations:
     alm-examples: '[]'
     capabilities: Basic Install
+    operatorframework.io/suggested-namespace: aws-cloudformation-operator
   name: aws-cloudformation-operator.v0.0.1
   namespace: placeholder
 spec:

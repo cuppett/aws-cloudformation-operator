@@ -52,6 +52,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
+    operatorframework.io/suggested-namespace: aws-cloudformation-operator
     operators.operatorframework.io/builder: operator-sdk-v1.15.0+git
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: aws-cloudformation-operator.v0.0.1
@@ -219,7 +220,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: controller:latest
+                image: quay.io/cuppett/aws-cloudformation-operator:v0.0.1
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -322,17 +323,6 @@ spec:
     url: https://github.com/cuppett
   version: 0.0.1
   webhookdefinitions:
-  - admissionReviewVersions:
-    - v1
-    containerPort: 443
-    conversionCRDs:
-    - stacks.cloudformation.services.k8s.aws.cuppett.dev
-    deploymentName: aws-cloudformation-operator-controller-manager
-    generateName: cstacks.kb.io
-    sideEffects: None
-    targetPort: 9443
-    type: ConversionWebhook
-    webhookPath: /convert
   - admissionReviewVersions:
     - v1
     containerPort: 443
