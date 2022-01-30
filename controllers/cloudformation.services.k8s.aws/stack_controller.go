@@ -66,7 +66,6 @@ type StackReconciler struct {
 	Scheme               *runtime.Scheme
 	WatchNamespaces      []string
 	CloudFormationHelper *CloudFormationHelper
-	DefaultTags          map[string]string
 	DryRun               bool
 }
 
@@ -395,7 +394,7 @@ func (r *StackReconciler) stackTags(loop *StackLoop) ([]cfTypes.Tag, error) {
 	}
 
 	// default tags
-	for k, v := range r.DefaultTags {
+	for k, v := range r.CloudFormationHelper.ConfigReconciler.GetTags(loop.ctx) {
 		tags = append(tags, cfTypes.Tag{
 			Key:   aws.String(k),
 			Value: aws.String(v),

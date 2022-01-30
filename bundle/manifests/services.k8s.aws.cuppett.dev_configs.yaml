@@ -36,6 +36,10 @@ spec:
             properties:
               region:
                 type: string
+              tags:
+                additionalProperties:
+                  type: string
+                type: object
             type: object
           status:
             description: ConfigStatus defines the observed state of Config

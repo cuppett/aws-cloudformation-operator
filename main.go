@@ -76,7 +76,6 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 
 	StackFlagSet = pflag.NewFlagSet("stack", pflag.ExitOnError)
-	StackFlagSet.StringToString("tag", map[string]string{}, "Tags to apply to all Stacks by default. Specify multiple times for multiple tags.")
 	StackFlagSet.Bool("dry-run", false, "If true, don't actually do anything.")
 	StackFlagSet.Bool("no-webhook", false, "If true, don't run the webhook server.")
 }
@@ -139,12 +138,6 @@ func main() {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
-	}
-
-	defaultTags, err := StackFlagSet.GetStringToString("tag")
-	if err != nil {
-		setupLog.Error(err, "error parsing flag")
 		os.Exit(1)
 	}
 
@@ -221,7 +214,6 @@ func main() {
 		Scheme:               mgr.GetScheme(),
 		WatchNamespaces:      watchNamespaces,
 		CloudFormationHelper: cfHelper,
-		DefaultTags:          defaultTags,
 		DryRun:               dryRun,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Stack")

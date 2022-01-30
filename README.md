@@ -279,10 +279,12 @@ You may want to assign tags to your CloudFormation stacks.
 The tags added to a CloudFormation stack will be propagated to the managed resources.
 This feature may be useful in multiple cases, for example, to distinguish resources at billing report.
 Current operator provides two ways to assign tags:
-- `--tag` command line argument or `AWS_TAGS` environment variable which allows setting default tags for all resources managed by the operator. The format is `--tag=foo=bar --tag=wambo=baz` on the command line or with a line break when specifying as an env var. (e.g. in zsh: `AWS_TAGS="foo=bar"$'\n'"wambo=baz"`)
-- `tags` parameter at kubernetes resource spec:
+- `tags` parameter on kubernetes `Config` resource spec
+- `tags` parameter on kubernetes `Stack` resource spec
 
-Resource-specific tags have precedence over the default tags.
+#### Stack Resource
+
+Resource-specific tags have precedence over the default tags in the `Config` object.
 Thus if a tag is defined at command-line arguments and for a `Stack` resource, the value from the `Stack` resource will
 be used.
 
@@ -305,6 +307,28 @@ spec:
           VersioningConfiguration:
             Status: Enabled
 ```
+
+#### Config
+
+### Controller Config
+
+This method of detecting/configuring can be used as a fallback to ensure a default value for all stacks is applied
+or to standardize a particular value cluster-wide.
+
+```yaml
+apiVersion: services.k8s.aws.cuppett.dev/v1alpha1
+kind: Config
+metadata:
+  name: default
+  namespace: aws-cloudformation-controller-system
+spec:
+  tags: 
+    bu: marketing
+    cluster: prod1
+```
+
+> NOTE: The name of `Config` must be `default` and in the namespace of the pod.
+
 
 If we run the operation and a `Stack` resource with the described above examples, we'll see such picture:
 
@@ -656,7 +680,6 @@ It is also possible to define region within the cluster.
 ### Controller Config
 
 This method of detecting/configuring the region can be used as a fallback.
-The name must be `default` and in the namespace of the pod.
 
 ```yaml
 apiVersion: services.k8s.aws.cuppett.dev/v1alpha1
@@ -667,6 +690,8 @@ metadata:
 spec:
   region: us-east-1
 ```
+
+> NOTE: The name of `Config` must be `default` and in the namespace of the pod.
 
 ### OpenShift Infrastructure
 
@@ -700,7 +725,6 @@ These may be useful for restricting permissions, adding specific tags or in supp
 
 | Argument    | Environment variable | Default value | Description                                                                                                                                                                                                                                                                                                                              |
 |-------------|----------------------|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| tag ...     |                      |               | Default tags which should be applied for all stacks. The format is `--tag=foo=bar --tag=wambo=baz` on the command line or with a line break when specifying as an env var. (e.g. in zsh: `AWS_TAGS="foo=bar"$'\n'"wambo=baz"`)                                                                                                           |
 | namespace   | WATCH_NAMESPACE      | (all)         | The Kubernetes namespace to watch. Can be one or more (separated by commas).                                                                                                                                                                                                                                                             |
 | dry-run     |                      |               | If true, don't actually do anything.                                                                                                                                                                                                                                                                                                     |
 | no-webhook  |                      |               | If true, don't listen on the webhook port (used for local dev)                                                                                                                                                                                                                                                                           |

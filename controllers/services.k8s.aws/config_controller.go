@@ -135,6 +135,16 @@ func (r *ConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return returnVal
 }
 
+func (r *ConfigReconciler) GetTags(ctx context.Context) map[string]string {
+
+	defaultConfig := r.getDefaultConfig(ctx)
+	if defaultConfig != nil {
+		return defaultConfig.Spec.Tags
+	}
+	return map[string]string{}
+
+}
+
 func (r *ConfigReconciler) GetCloudFormation() *cloudformation.Client {
 	if r.cloudFormation == nil {
 		r.cfLock.Lock()

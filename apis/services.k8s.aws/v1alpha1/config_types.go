@@ -34,6 +34,9 @@ import (
 // ConfigSpec defines the desired state of Config
 type ConfigSpec struct {
 	Region string `json:"region,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +optional
+	Tags map[string]string `json:"tags,omitempty"`
 }
 
 // ConfigStatus defines the observed state of Config
