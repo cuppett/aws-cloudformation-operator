@@ -6,16 +6,6 @@ metadata:
   creationTimestamp: null
   name: stacks.cloudformation.services.k8s.aws.cuppett.dev
 spec:
-  conversion:
-    strategy: Webhook
-    webhook:
-      clientConfig:
-        service:
-          name: aws-cloudformation-operator-webhook-service
-          namespace: aws-cloudformation-operator-system
-          path: /convert
-      conversionReviewVersions:
-      - v1
   group: cloudformation.services.k8s.aws.cuppett.dev
   names:
     kind: Stack
