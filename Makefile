@@ -28,7 +28,7 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 # This variable is used to construct full image tags for bundle and catalog images.
 #
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
-# cuppett.dev/aws-cloudformation-operator-bundle:$VERSION and cuppett.dev/aws-cloudformation-operator-catalog:$VERSION.
+# quay.io/aws-cloudformation-operator-bundle:$VERSION and quay.io/aws-cloudformation-operator-catalog:$VERSION.
 IMAGE_TAG_BASE ?= quay.io/cuppett/aws-cloudformation-operator
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
@@ -36,7 +36,7 @@ IMAGE_TAG_BASE ?= quay.io/cuppett/aws-cloudformation-operator
 BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
 
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG ?= $(IMAGE_TAG_BASE):v$(VERSION)
 # Namespace assumed for the deployment
 POD_NAMESPACE ?= aws-cloudformation-controller-system
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
