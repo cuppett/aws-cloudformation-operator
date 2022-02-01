@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.12.0
 	github.com/go-logr/logr v0.4.0
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.17.0
+	github.com/onsi/gomega v1.18.1
 	github.com/openshift/api v0.0.0-20211028023115-7224b732cc14
 	github.com/openshift/cloud-credential-operator v0.0.0-20211201043943-d642d1125fa4
 	github.com/prometheus/client_golang v1.11.0
