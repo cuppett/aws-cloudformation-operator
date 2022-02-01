@@ -320,7 +320,7 @@ apiVersion: services.k8s.aws.cuppett.dev/v1alpha1
 kind: Config
 metadata:
   name: default
-  namespace: aws-cloudformation-controller-system
+  namespace: aws-cloudformation-operator-system
 spec:
   tags: 
     bu: marketing
@@ -482,6 +482,11 @@ Assuming no resources are to be modified by the operator directly, here is the m
 ```yaml
 Version: '2012-10-17'
 Statement:
+    Resource: "*"
+  - Sid: PassRole
+    Effect: Allow
+    Action:
+      - iam:PassRole
     Resource: "*"
   - Sid: CreateRead
     Effect: Allow
@@ -686,7 +691,7 @@ apiVersion: services.k8s.aws.cuppett.dev/v1alpha1
 kind: Config
 metadata:
   name: default
-  namespace: aws-cloudformation-controller-system
+  namespace: aws-cloudformation-operator-system
 spec:
   region: us-east-1
 ```

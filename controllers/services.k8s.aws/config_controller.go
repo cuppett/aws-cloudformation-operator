@@ -244,6 +244,13 @@ func (r *ConfigReconciler) createCredentialRequest(ctx context.Context, namespac
 			Effect:   "Allow",
 			Resource: "*",
 			Action: []string{
+				"iam:PassRole",
+			},
+		},
+		{
+			Effect:   "Allow",
+			Resource: "*",
+			Action: []string{
 				"cloudformation:CreateStack",
 				"cloudformation:DescribeStackInstance",
 				"cloudformation:DescribeStackResource",
