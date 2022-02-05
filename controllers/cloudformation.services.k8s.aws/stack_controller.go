@@ -31,6 +31,7 @@ import (
 	"github.com/cuppett/aws-cloudformation-operator/apis/cloudformation.services.k8s.aws/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"strings"
 
@@ -88,7 +89,7 @@ type StackLoop struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.3/pkg/reconcile
 func (r *StackReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	loop := &StackLoop{ctx, req, &v1alpha1.Stack{}, nil,
-		r.Log.WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)}
+		log.FromContext(ctx).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)}
 
 	// Fetch the Stack instance
 	err := r.Client.Get(loop.ctx, loop.req.NamespacedName, loop.instance)

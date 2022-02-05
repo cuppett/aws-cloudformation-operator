@@ -40,6 +40,8 @@ rules:
   - create
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - cloudformation.services.k8s.aws.cuppett.dev

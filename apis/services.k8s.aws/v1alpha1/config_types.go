@@ -26,6 +26,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -37,6 +38,10 @@ type ConfigSpec struct {
 	// +kubebuilder:validation:Optional
 	// +optional
 	Tags map[string]string `json:"tags,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +optional
+	AdditionalPermissions *runtime.RawExtension `json:"additionalPermissions,omitempty"`
 }
 
 // ConfigStatus defines the observed state of Config

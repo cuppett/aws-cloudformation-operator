@@ -26,6 +26,7 @@ package servicesk8saws
 
 import (
 	"context"
+	coreerrors "errors"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudformation"
@@ -82,6 +83,12 @@ func InitializeConfigReconciler(client client.Client, log logr.Logger, scheme *r
 	return reconciler
 }
 
+type ConfigLoop struct {
+	ctx    context.Context
+	config *servicesv1alpha1.Config
+	Log    logr.Logger
+}
+
 //+kubebuilder:rbac:groups=services.k8s.aws.cuppett.dev,resources=configs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=services.k8s.aws.cuppett.dev,resources=configs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=services.k8s.aws.cuppett.dev,resources=configs/finalizers,verbs=update
@@ -96,10 +103,23 @@ func InitializeConfigReconciler(client client.Client, log logr.Logger, scheme *r
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.10.0/pkg/reconcile
 func (r *ConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+
+	loop := &ConfigLoop{ctx, &servicesv1alpha1.Config{},
+		log.FromContext(ctx).WithValues("Request.Namespace", req.Namespace, "Request.Name", req.Name)}
+
+	// Fetch the Stack instance
+	err := r.client.Get(loop.ctx, req.NamespacedName, loop.config)
+	if err != nil {
+		loop.Log.Error(err, "Failed to get Config")
+		return ctrl.Result{}, err
+	}
+
 	r.cfLock.Lock()
-	r.createCloudFormation()
+	r.createCloudFormation(loop)
 	r.cfLock.Unlock()
+
+	r.createOrUpdateCredentialRequest(loop)
+
 	return ctrl.Result{}, nil
 }
 
@@ -149,45 +169,48 @@ func (r *ConfigReconciler) GetCloudFormation() *cloudformation.Client {
 	if r.cloudFormation == nil {
 		r.cfLock.Lock()
 		if r.cloudFormation == nil {
-			r.createCloudFormation()
+			ctx := context.TODO()
+			loop := &ConfigLoop{ctx, r.getDefaultConfig(ctx),
+				log.FromContext(ctx)}
+			r.createCloudFormation(loop)
 		}
 		r.cfLock.Unlock()
 	}
 	return r.cloudFormation
 }
 
-func (r *ConfigReconciler) createCloudFormation() {
-	cfg := r.loadConfig(context.TODO())
+func (r *ConfigReconciler) createCloudFormation(loop *ConfigLoop) {
+	cfg := r.loadConfig(loop)
 	r.cloudFormation = cloudformation.NewFromConfig(*cfg)
 }
 
-func (r *ConfigReconciler) loadConfig(ctx context.Context) *aws.Config {
+func (r *ConfigReconciler) loadConfig(loop *ConfigLoop) *aws.Config {
 
-	cfg, err := config.LoadDefaultConfig(context.TODO())
+	cfg, err := config.LoadDefaultConfig(loop.ctx)
 	if err != nil {
 		r.log.Error(err, "error getting AWS config")
 		return nil
 	}
 
 	if cfg.Region == "" {
-		cfg.Region = r.getClusterRegion(ctx)
+		cfg.Region = r.getClusterRegion(loop)
 	}
 
 	r.log.Info("Region resolved", "region", cfg.Region)
 
 	// Looking for credentials
-	credentials, err := cfg.Credentials.Retrieve(ctx)
+	credentials, err := cfg.Credentials.Retrieve(loop.ctx)
 	// If the default ways didn't give it to us and we're in OpenShift Mint Mode
-	if (err != nil || !credentials.HasKeys()) && r.isMintMode(ctx) {
+	if (err != nil || !credentials.HasKeys()) && r.isMintMode(loop.ctx) {
 		secret := &v12.Secret{}
 		namespacedName := types.NamespacedName{
 			Namespace: podNamespace,
 			Name:      credSecretName,
 		}
-		err = r.client.Get(ctx, namespacedName, secret)
+		err = r.client.Get(loop.ctx, namespacedName, secret)
 		if err != nil {
 			r.log.Info("Failed to get Secret", "error", err)
-			r.checkCredentialRequest(ctx)
+			r.createOrUpdateCredentialRequest(loop)
 		} else {
 			cfg.Credentials = &SecretProvider{
 				*secret,
@@ -209,34 +232,66 @@ func (r *ConfigReconciler) loadConfig(ctx context.Context) *aws.Config {
 
 //+kubebuilder:rbac:groups=cloudcredential.openshift.io,resources=credentialsrequests,verbs=get;list;watch
 
-func (r *ConfigReconciler) checkCredentialRequest(ctx context.Context) {
+func (r *ConfigReconciler) createOrUpdateCredentialRequest(loop *ConfigLoop) {
 	credentialRequest := &ccmv1.CredentialsRequest{}
 	namespacedName := types.NamespacedName{
 		Name:      credReqName,
 		Namespace: credReqNamespace,
 	}
-	err := r.client.Get(ctx, namespacedName, credentialRequest)
+	err := r.client.Get(loop.ctx, namespacedName, credentialRequest)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			r.log.Info("CredentialRequest does not exist")
-			r.createCredentialRequest(ctx, namespacedName)
+			r.log.Info("CredentialsRequest does not exist")
+			credentialRequest.Name = namespacedName.Name
+			credentialRequest.Namespace = namespacedName.Namespace
+			r.createCredentialRequest(loop, credentialRequest)
 		} else {
 			r.log.Error(err, "Failed to get CredentialRequest")
 		}
+	} else {
+		r.updateCredentialRequest(loop, credentialRequest)
+		r.log.Info("CredentialsRequest exists", "status", credentialRequest.Status)
 	}
-	r.log.Info("credential request exists, something else wrong.", "status", credentialRequest.Status)
 }
 
 //+kubebuilder:rbac:groups=cloudcredential.openshift.io,resources=credentialsrequests,verbs=create
 
-func (r *ConfigReconciler) createCredentialRequest(ctx context.Context, namespacedName types.NamespacedName) {
+func (r *ConfigReconciler) createCredentialRequest(loop *ConfigLoop, credentialRequest *ccmv1.CredentialsRequest) {
 
-	credentialRequest := ccmv1.CredentialsRequest{}
-	credentialRequest.Name = namespacedName.Name
-	credentialRequest.Namespace = namespacedName.Namespace
 	credentialRequest.Spec.SecretRef.Name = credSecretName
 	credentialRequest.Spec.SecretRef.Namespace = podNamespace
 	credentialRequest.Spec.ServiceAccountNames = []string{podServiceAccount}
+
+	err := r.updateCredentialsRequestPolicyStatements(loop, credentialRequest)
+
+	if err == nil {
+		err = r.client.Create(loop.ctx, credentialRequest)
+	}
+	if err != nil {
+		r.log.Error(err, "Failure creating CredentialsRequest object")
+	} else {
+		r.log.Info("Created CredentialsRequest")
+	}
+}
+
+//+kubebuilder:rbac:groups=cloudcredential.openshift.io,resources=credentialsrequests,verbs=update;patch
+
+func (r *ConfigReconciler) updateCredentialRequest(loop *ConfigLoop, credentialRequest *ccmv1.CredentialsRequest) {
+
+	err := r.updateCredentialsRequestPolicyStatements(loop, credentialRequest)
+
+	if err == nil {
+		r.log.Info("updating with", "credentialrequest", credentialRequest)
+		err = r.client.Update(loop.ctx, credentialRequest)
+	}
+	if err != nil {
+		r.log.Error(err, "Failure updating CredentialsRequest object")
+	} else {
+		r.log.Info("Updated CredentialsRequest")
+	}
+}
+
+func (r *ConfigReconciler) updateCredentialsRequestPolicyStatements(loop *ConfigLoop, credentialRequest *ccmv1.CredentialsRequest) error {
 
 	credentialRequestProviderSpec := ccmv1.AWSProviderSpec{}
 	credentialRequestProviderSpec.StatementEntries = []ccmv1.StatementEntry{
@@ -274,19 +329,47 @@ func (r *ConfigReconciler) createCredentialRequest(ctx context.Context, namespac
 	}
 
 	codec, err := ccmv1.NewCodec()
+	if err != nil {
+		r.log.Error(err, "Failure creating codec")
+	}
+
+	// Pick up any additional permissions required to be minted in via OpenShift
+	if loop.config != nil {
+		if loop.config.Spec.AdditionalPermissions != nil {
+			awsSpec := ccmv1.AWSProviderSpec{}
+			err = codec.DecodeProviderSpec(loop.config.Spec.AdditionalPermissions, &awsSpec)
+			if err == nil {
+				for _, entry := range awsSpec.StatementEntries {
+					r.log.Info("Appending in something", "entry", entry)
+					credentialRequestProviderSpec.StatementEntries = append(credentialRequestProviderSpec.StatementEntries, entry)
+				}
+				if len(awsSpec.StatementEntries) == 0 {
+					r.log.Info("There are no entries", "awsSpec", awsSpec)
+				}
+			} else {
+				r.log.Error(err, "Failed to decode.")
+			}
+		} else {
+			r.log.Error(err, "No additional permissions.")
+		}
+	} else {
+		err = coreerrors.New("Config is nil")
+		r.log.Error(err, "Config could not be retrieved")
+	}
+
+	r.log.Info("Our current providerspec", "spec", credentialRequestProviderSpec)
+
 	var raw *runtime.RawExtension
 	if err == nil {
 		raw, err = codec.EncodeProviderSpec(credentialRequestProviderSpec.DeepCopyObject())
 	}
 	if err == nil && raw != nil {
 		credentialRequest.Spec.ProviderSpec = raw
-		err = r.client.Create(ctx, &credentialRequest)
+	} else if raw == nil {
+		err = coreerrors.New("Failed to marshal the raw object into a ProviderSpec")
 	}
 
-	if err != nil || raw == nil {
-		r.log.Error(err, "Failure marshaling or creating object")
-
-	}
+	return err
 }
 
 func (r *ConfigReconciler) retrieveConfig(ctx context.Context, name types.NamespacedName) (*servicesv1alpha1.Config, error) {
@@ -315,15 +398,14 @@ func (r *ConfigReconciler) getDefaultConfig(ctx context.Context) *servicesv1alph
 	return defaultConfig
 }
 
-func (r *ConfigReconciler) getClusterRegion(ctx context.Context) string {
+func (r *ConfigReconciler) getClusterRegion(loop *ConfigLoop) string {
 	// Look for direct configuration via our Config CRD
-	defaultConfig := r.getDefaultConfig(ctx)
-	if defaultConfig != nil && defaultConfig.Spec.Region != "" {
-		return defaultConfig.Spec.Region
+	if loop.config != nil && loop.config.Spec.Region != "" {
+		return loop.config.Spec.Region
 	}
 
 	// Lastly, if we're on OpenShift, check what the region is for the infra.
-	return r.getInfraRegion(ctx)
+	return r.getInfraRegion(loop.ctx)
 }
 
 //+kubebuilder:rbac:groups=config.openshift.io,resources=infrastructures,verbs=get;list;watch

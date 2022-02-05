@@ -18,21 +18,21 @@ patchesJson6902:
     namespace: system
   patch: |-
     - op: remove
-      path: /spec/template/spec/containers/0/env/5
+      path: /spec/template/spec/containers/1/env/5
     - op: remove
-      path: /spec/template/spec/containers/0/env/4
+      path: /spec/template/spec/containers/1/env/4
     - op: remove
-      path: /spec/template/spec/containers/0/env/3
+      path: /spec/template/spec/containers/1/env/3
     - op: remove
-      path: /spec/template/spec/containers/0/env/2
+      path: /spec/template/spec/containers/1/env/2
     - op: remove
-      path: /spec/template/spec/containers/0/env/1
+      path: /spec/template/spec/containers/1/env/1
     - op: remove
-      path: /spec/template/spec/containers/0/env/0
+      path: /spec/template/spec/containers/1/env/0
     # Remove the manager container's "cert" volumeMount, since OLM will create and mount a set of certs.
     # Update the indices in this path if adding or removing containers/volumeMounts in the manager's Deployment.
     - op: remove
-      path: /spec/template/spec/containers/0/volumeMounts/0
+      path: /spec/template/spec/containers/1/volumeMounts/0
     # Remove the "cert" volume, since OLM will create and mount a set of certs.
     # Update the indices in this path if adding or removing volumes in the manager's Deployment.
     - op: remove

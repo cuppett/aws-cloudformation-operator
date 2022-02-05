@@ -571,6 +571,44 @@ the controller will attempt to discover credentials using the SDK, but then fall
 permissions identified from above.
 The resulting secret will be used.
 
+###### Additional Permissions
+
+You can add permissions to the credentials minted by OpenShift via the Config object:
+
+```yaml
+apiVersion: services.k8s.aws.cuppett.dev/v1alpha1
+kind: Config
+metadata:
+  name: default
+  namespace: aws-cloudformation-operator-system
+spec:
+  tags:
+    cluster: prod1  
+  additionalPermissions:
+    apiVersion: cloudcredential.openshift.io/v1
+    kind: AWSProviderSpec
+    statementEntries:
+      - action:
+        - 's3:CreateBucket'
+        - 's3:ListBuckets'
+        effect: Allow
+        resource: '*'
+      ## Allowing all S3 actions against buckets owned by this cluster tag
+      - action:
+        - 's3:*'
+        effect: Allow
+        policyCondition:
+          StringEquals:
+            'aws:ResourceTag/cluster': prod1
+        resource: '*'
+```
+
+> NOTE: You *only* need supply additional permissions here. The default permissions will always be included in the `CredentialsRequest`.
+
+This is the easy way to allow the operator to create/manage resources in various services.
+However, it should be more desirable to limit the operator to CloudFormation and iam:PassRole (default).
+Using only PassRole enables you to set up OPA rules ensuring `Stack` objects in namespaces always specify `roleArn` in their objects and match any desired assignment conventions you may have.
+
 #### Using kustomize & make to deploy
 
 Deploy and start the CloudFormation operator in your cluster by using the provided manifests and Makefile:

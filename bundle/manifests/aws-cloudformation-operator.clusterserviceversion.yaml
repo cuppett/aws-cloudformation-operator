@@ -53,9 +53,9 @@ metadata:
       ]
     capabilities: Basic Install
     operatorframework.io/suggested-namespace: aws-cloudformation-operator
-    operators.operatorframework.io/builder: operator-sdk-v1.15.0+git
+    operators.operatorframework.io/builder: operator-sdk-v1.14.0+git
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-  name: aws-cloudformation-operator.v0.0.1
+  name: aws-cloudformation-operator.v0.0.2
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -115,6 +115,8 @@ spec:
           - create
           - get
           - list
+          - patch
+          - update
           - watch
         - apiGroups:
           - cloudformation.services.k8s.aws.cuppett.dev
@@ -202,6 +204,24 @@ spec:
             spec:
               containers:
               - args:
+                - --secure-listen-address=0.0.0.0:8443
+                - --upstream=http://127.0.0.1:8080/
+                - --logtostderr=true
+                - --v=0
+                image: quay.io/cuppett/kube-rbac-proxy:v0.11.0
+                name: kube-rbac-proxy
+                ports:
+                - containerPort: 8443
+                  name: https
+                  protocol: TCP
+                resources:
+                  limits:
+                    cpu: 500m
+                    memory: 128Mi
+                  requests:
+                    cpu: 5m
+                    memory: 64Mi
+              - args:
                 - --health-probe-bind-address=:8081
                 - --metrics-bind-address=127.0.0.1:8080
                 - --leader-elect
@@ -220,7 +240,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: quay.io/cuppett/aws-cloudformation-operator:v0.0.1
+                image: quay.io/cuppett/aws-cloudformation-operator:v0.0.2
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -244,24 +264,6 @@ spec:
                     memory: 100Mi
                 securityContext:
                   allowPrivilegeEscalation: false
-              - args:
-                - --secure-listen-address=0.0.0.0:8443
-                - --upstream=http://127.0.0.1:8080/
-                - --logtostderr=true
-                - --v=0
-                image: quay.io/cuppett/kube-rbac-proxy:v0.11.0
-                name: kube-rbac-proxy
-                ports:
-                - containerPort: 8443
-                  name: https
-                  protocol: TCP
-                resources:
-                  limits:
-                    cpu: 500m
-                    memory: 128Mi
-                  requests:
-                    cpu: 5m
-                    memory: 64Mi
               securityContext:
                 runAsNonRoot: true
               serviceAccountName: aws-cloudformation-operator-controller-manager
@@ -327,7 +329,8 @@ spec:
   provider:
     name: Stephen Cuppett
     url: https://github.com/cuppett
-  version: 0.0.1
+  replaces: aws-cloudformation-operator.v0.0.1
+  version: 0.0.2
   webhookdefinitions:
   - admissionReviewVersions:
     - v1
