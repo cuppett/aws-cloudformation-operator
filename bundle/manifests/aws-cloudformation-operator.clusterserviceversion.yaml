@@ -53,7 +53,7 @@ metadata:
       ]
     capabilities: Basic Install
     operatorframework.io/suggested-namespace: aws-cloudformation-operator
-    operators.operatorframework.io/builder: operator-sdk-v1.14.0+git
+    operators.operatorframework.io/builder: operator-sdk-v1.16.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: aws-cloudformation-operator.v0.0.2
   namespace: placeholder
@@ -186,6 +186,18 @@ spec:
           - get
           - patch
           - update
+        - apiGroups:
+          - authentication.k8s.io
+          resources:
+          - tokenreviews
+          verbs:
+          - create
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - subjectaccessreviews
+          verbs:
+          - create
         serviceAccountName: aws-cloudformation-operator-controller-manager
       deployments:
       - name: aws-cloudformation-operator-controller-manager
@@ -301,6 +313,12 @@ spec:
           verbs:
           - create
           - patch
+        - apiGroups:
+          - '*'
+          resources:
+          - secrets
+          verbs:
+          - get
         serviceAccountName: aws-cloudformation-operator-controller-manager
     strategy: deployment
   installModes:
