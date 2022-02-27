@@ -5,7 +5,7 @@ metadata:
     alm-examples: '[]'
     capabilities: Basic Install
     operatorframework.io/suggested-namespace: aws-cloudformation-operator
-  name: aws-cloudformation-operator.v0.0.2
+  name: aws-cloudformation-operator.v0.0.3
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -56,5 +56,5 @@ spec:
   provider:
     name: Stephen Cuppett
     url: https://github.com/cuppett
-  replaces: aws-cloudformation-operator.v0.0.1
-  version: 0.0.2
+  replaces: aws-cloudformation-operator.v0.0.2
+  version: 0.0.3

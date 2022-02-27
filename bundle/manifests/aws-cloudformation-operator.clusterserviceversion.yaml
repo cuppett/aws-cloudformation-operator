@@ -53,9 +53,9 @@ metadata:
       ]
     capabilities: Basic Install
     operatorframework.io/suggested-namespace: aws-cloudformation-operator
-    operators.operatorframework.io/builder: operator-sdk-v1.16.0
+    operators.operatorframework.io/builder: operator-sdk-v1.17.0+git
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-  name: aws-cloudformation-operator.v0.0.2
+  name: aws-cloudformation-operator.v0.0.3
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -252,14 +252,14 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: quay.io/cuppett/aws-cloudformation-operator:v0.0.2
+                image: quay.io/cuppett/aws-cloudformation-operator:v0.0.3
                 livenessProbe:
                   httpGet:
                     path: /healthz
                     port: 8081
                   initialDelaySeconds: 15
                   periodSeconds: 20
-                name: controller
+                name: manager
                 ports:
                 - containerPort: 9443
                   name: webhook-server
@@ -347,8 +347,8 @@ spec:
   provider:
     name: Stephen Cuppett
     url: https://github.com/cuppett
-  replaces: aws-cloudformation-operator.v0.0.1
-  version: 0.0.2
+  replaces: aws-cloudformation-operator.v0.0.2
+  version: 0.0.3
   webhookdefinitions:
   - admissionReviewVersions:
     - v1
