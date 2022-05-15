@@ -34,7 +34,6 @@ import (
 	servicesk8saws "github.com/cuppett/aws-cloudformation-operator/controllers/services.k8s.aws"
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
-	ccmv1 "github.com/openshift/cloud-credential-operator/pkg/apis/cloudcredential/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"os"
@@ -70,7 +69,6 @@ func init() {
 	utilruntime.Must(apiextensions.AddToScheme(scheme))
 	utilruntime.Must(configv1.Install(scheme))
 	utilruntime.Must(operatorv1.Install(scheme))
-	utilruntime.Must(ccmv1.Install(scheme))
 	utilruntime.Must(cfv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(configv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme

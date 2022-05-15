@@ -10,8 +10,7 @@ require (
 	github.com/go-logr/logr v1.2.3
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.19.0
-	github.com/openshift/api v0.0.0-20220203140920-bfe251c51d2d
-	github.com/openshift/cloud-credential-operator v0.0.0-20220316185125-ed0612946f4b
+	github.com/openshift/api v0.0.0-20220414050251-a83e6f8f1d50
 	github.com/prometheus/client_golang v1.12.1
 	github.com/spf13/pflag v1.0.5
 	k8s.io/api v0.23.6

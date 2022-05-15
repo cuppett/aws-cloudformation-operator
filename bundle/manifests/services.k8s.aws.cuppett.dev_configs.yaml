@@ -34,9 +34,6 @@ spec:
           spec:
             description: ConfigSpec defines the desired state of Config
             properties:
-              additionalPermissions:
-                type: object
-                x-kubernetes-preserve-unknown-fields: true
               region:
                 type: string
               tags:

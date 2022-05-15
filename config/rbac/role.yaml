@@ -33,17 +33,6 @@ rules:
   - list
   - watch
 - apiGroups:
-  - cloudcredential.openshift.io
-  resources:
-  - credentialsrequests
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - cloudformation.services.k8s.aws.cuppett.dev
   resources:
   - stacks
@@ -73,14 +62,6 @@ rules:
   - config.openshift.io
   resources:
   - infrastructures
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - operator.openshift.io
-  resources:
-  - cloudcredentials
   verbs:
   - get
   - list
