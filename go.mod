@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.16.3
-	github.com/aws/aws-sdk-go-v2/config v1.15.4
+	github.com/aws/aws-sdk-go-v2/config v1.15.5
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.20.4
 	github.com/aws/aws-sdk-go-v2/service/sts v1.16.4
 	github.com/go-logr/logr v1.2.3
