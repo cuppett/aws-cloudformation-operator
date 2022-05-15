@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM public.ecr.aws/docker/library/golang:1.18 as builder
+FROM quay.io/cuppett/golang:1.18 as builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
