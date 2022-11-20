@@ -23,8 +23,8 @@ SOFTWARE.
 */
 
 // Package v1alpha1 contains API Schema definitions for the services.k8s.aws v1alpha1 API group
-//+kubebuilder:object:generate=true
-//+groupName=services.k8s.aws.cuppett.dev
+// +kubebuilder:object:generate=true
+// +groupName=services.k8s.aws.cuppett.dev
 package v1alpha1
 
 import (
