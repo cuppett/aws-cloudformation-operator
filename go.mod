@@ -3,7 +3,7 @@ module github.com/cuppett/aws-cloudformation-operator
 go 1.19
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.17.3
+	github.com/aws/aws-sdk-go-v2 v1.17.5
 	github.com/aws/aws-sdk-go-v2/config v1.18.10
 	github.com/aws/aws-sdk-go-v2/service/cloudformation v1.26.1
 	github.com/aws/aws-sdk-go-v2/service/sts v1.18.2
