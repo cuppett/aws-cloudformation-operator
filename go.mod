@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.18.5
 	github.com/go-logr/logr v1.2.3
 	github.com/onsi/ginkgo/v2 v2.9.2
-	github.com/onsi/gomega v1.27.4
+	github.com/onsi/gomega v1.27.6
 	github.com/openshift/api v0.0.0-20220414050251-a83e6f8f1d50
 	github.com/prometheus/client_golang v1.14.0
 	github.com/spf13/pflag v1.0.5
