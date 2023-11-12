@@ -24,6 +24,10 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go
 # Use ubi8/ubi-minimal as minimal base image to package the manager binary
 FROM ghcr.io/cuppett/fedora-minimal:latest
 
+LABEL maintainer "Stephen Cuppett <steve@cuppett.com>" \
+      org.opencontainers.image.title "aws-cloudformation-operator" \
+      org.opencontainers.image.source "https://github.com/cuppett/aws-cloudformation-operator"
+
 WORKDIR /
 COPY --from=builder /workspace/manager .
 # copy channels
