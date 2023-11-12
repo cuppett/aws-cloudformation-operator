@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM quay.io/cuppett/golang:1.19 as builder
+FROM quay.io/cuppett/golang:1.21 as builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -23,6 +23,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go
 
 # Use ubi8/ubi-minimal as minimal base image to package the manager binary
 FROM registry.access.redhat.com/ubi9/ubi-minimal
+
 WORKDIR /
 COPY --from=builder /workspace/manager .
 # copy channels
