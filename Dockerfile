@@ -22,7 +22,7 @@ RUN chmod -R a+rx /channels/
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go
 
 # Use ubi8/ubi-minimal as minimal base image to package the manager binary
-FROM registry.access.redhat.com/ubi9/ubi-minimal
+FROM ghcr.io/cuppett/fedora-minimal:latest
 
 WORKDIR /
 COPY --from=builder /workspace/manager .
