@@ -1,0 +1,8 @@
+apiVersion: services.k8s.aws.cuppett.dev/v1alpha1
+kind: Config
+metadata:
+  name: default
+  namespace: aws-cloudformation-controller-system
+spec:
+  region: us-east-1
+
