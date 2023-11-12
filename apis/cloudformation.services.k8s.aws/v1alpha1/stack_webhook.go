@@ -31,6 +31,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // log is for logging in this package.
@@ -65,35 +66,35 @@ var (
 var _ webhook.Validator = &Stack{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *Stack) ValidateCreate() error {
+func (r *Stack) ValidateCreate() (admission.Warnings, error) {
 	stacklog.Info("validate create", "name", r.Name)
 
 	// Checking to ensure both the template and templateUrl aren't specified.
 	if r.Spec.Template != "" && r.Spec.TemplateUrl != "" {
-		return ErrBothTemplateAndUrl
+		return nil, ErrBothTemplateAndUrl
 	}
 
 	// Ensuring either the template or templateUrl are specified.
 	if r.Spec.Template == "" && r.Spec.TemplateUrl == "" {
-		return ErrNeedTemplateOrUrl
+		return nil, ErrNeedTemplateOrUrl
 	}
 
 	// Ensuring the Role ARN is long enough
 	if r.Spec.RoleARN != "" && len(r.Spec.RoleARN) < 20 {
-		return ErrRoleArnTooShort
+		return nil, ErrRoleArnTooShort
 	}
 
 	// Ensuring no more than 5 NotificationARNs are submitted
 	if len(r.Spec.NotificationArns) > 5 {
-		return ErrTooManyARNs
+		return nil, ErrTooManyARNs
 	}
 
 	if len(r.Spec.StackName) > 64 {
-		return ErrStackNameTooLong
+		return nil, ErrStackNameTooLong
 	}
 
 	if r.Spec.StackName != "" && !nameRegex.Match([]byte(r.Spec.StackName)) {
-		return ErrStackNameFormat
+		return nil, ErrStackNameFormat
 	}
 
 	// Ensuring the capabilities input are within the known/allowed set
@@ -106,40 +107,40 @@ func (r *Stack) ValidateCreate() error {
 			}
 		}
 		if !goodCapability {
-			return ErrBadCapability
+			return nil, ErrBadCapability
 		}
 	}
 
-	return nil
+	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *Stack) ValidateUpdate(old runtime.Object) error {
+func (r *Stack) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	stacklog.Info("validate update", "name", r.Name)
 
 	// Converting to Stack type
 	oldStack := old.(*Stack)
 
 	if r.Spec.RoleARN == "" && oldStack.Status.RoleARN != "" {
-		return ErrMissingRole
+		return nil, ErrMissingRole
 	}
 
 	if r.Spec.OnFailure != oldStack.Spec.OnFailure {
-		return ErrCannotChangeOnFail
+		return nil, ErrCannotChangeOnFail
 	}
 
 	if r.Spec.StackName != oldStack.Spec.StackName {
-		return ErrCannotRenameStacks
+		return nil, ErrCannotRenameStacks
 	}
 
 	return r.ValidateCreate()
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *Stack) ValidateDelete() error {
+func (r *Stack) ValidateDelete() (admission.Warnings, error) {
 	stacklog.Info("validate delete", "name", r.Name)
 
 	// Nothing presently problematic about delete.
 
-	return nil
+	return nil, nil
 }

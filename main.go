@@ -26,7 +26,9 @@ SOFTWARE.
 package main
 
 import (
+	"crypto/tls"
 	"flag"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	cfv1alpha1 "github.com/cuppett/aws-cloudformation-operator/apis/cloudformation.services.k8s.aws/v1alpha1"
 	configv1alpha1 "github.com/cuppett/aws-cloudformation-operator/apis/services.k8s.aws/v1alpha1"
@@ -54,6 +56,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsServer "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -82,16 +85,20 @@ func main() {
 	var namespace string
 	var watchNamespaces []string
 	var metricsAddr string
+	var enableHTTP2 bool
+	var secureMetrics bool
 	var enableLeaderElection bool
 	var probeAddr string
 	var err error
 
 	flag.StringVar(&namespace, "namespace", "", "The Kubernetes namespace to watch")
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	flag.BoolVar(&secureMetrics, "metrics-secure", secureMetrics, "If the metrics endpoint should be served securely.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.BoolVar(&enableHTTP2, "enable-http2", enableHTTP2, "If HTTP/2 should be enabled for the metrics and webhook servers.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -111,26 +118,49 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	disableHTTP2 := func(c *tls.Config) {
+		if enableHTTP2 {
+			return
+		}
+		c.NextProtos = []string{"http/1.1"}
+	}
+
+	webhookServerOptions := webhook.Options{
+		TLSOpts: []func(config *tls.Config){disableHTTP2},
+	}
+	webhookServer := webhook.NewServer(webhookServerOptions)
+
+	metricsOptions := metricsServer.Options{
+		BindAddress:   metricsAddr,
+		SecureServing: secureMetrics,
+		TLSOpts:       []func(*tls.Config){disableHTTP2},
+	}
+
 	options := ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
+		Metrics:                metricsOptions,
+		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "3680e595.cuppett.dev",
-		Namespace:              namespace, // namespaced-scope when the value is not an empty string
+		LeaderElectionID:       "3680e595.cuppett.dev", // namespaced-scope when the value is not an empty string
 	}
 	// Add support for MultiNamespace set in WATCH_NAMESPACE (e.g ns1,ns2)
 	if len(watchNamespaces) > 0 {
 		setupLog.Info("manager set up with multiple namespaces", "namespaces", namespace)
-		cacheNamespaces := watchNamespaces
+
+		defaultNamespaces := make(map[string]cache.Config)
+
+		for _, ns := range watchNamespaces {
+			defaultNamespaces[ns] = cache.Config{}
+		}
+
 		configNamespace, exists := os.LookupEnv("POD_NAMESPACE")
 		if exists {
-			cacheNamespaces = append(cacheNamespaces, configNamespace)
+			defaultNamespaces[configNamespace] = cache.Config{}
 		}
-		// configure cluster-scoped with MultiNamespacedCacheBuilder
-		options.Namespace = ""
-		options.NewCache = cache.MultiNamespacedCacheBuilder(cacheNamespaces)
+		options.Cache = cache.Options{
+			DefaultNamespaces: defaultNamespaces,
+		}
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
