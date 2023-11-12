@@ -13,10 +13,6 @@ RUN go mod download
 COPY main.go main.go
 COPY apis/ apis/
 COPY controllers/ controllers/
-# https://github.com/kubernetes-sigs/kubebuilder-declarative-pattern/blob/master/docs/addon/walkthrough/README.md#adding-a-manifest
-# Stage channels and make readable
-COPY channels/ /channels/
-RUN chmod -R a+rx /channels/
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go
@@ -30,8 +26,6 @@ LABEL maintainer "Stephen Cuppett <steve@cuppett.com>" \
 
 WORKDIR /
 COPY --from=builder /workspace/manager .
-# copy channels
-COPY --from=builder /channels /channels
 USER 65532:65532
 
 ENTRYPOINT ["/manager"]
